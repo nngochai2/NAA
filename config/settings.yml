@@ -1,0 +1,36 @@
+# Shared non-secret configuration for all NAA modules.
+# Secrets (passwords, tokens) must be supplied via .env or Jenkins-injected env vars.
+# Environment variables always take precedence over these values.
+
+neo4j:
+  docgraph:
+    uri: bolt://localhost:7687
+    browser_url: http://localhost:7474
+  codegraph:
+    uri: bolt://localhost:7688
+    browser_url: http://localhost:7475
+
+mcp_servers:
+  knowledge_graph:
+    host: "127.0.0.1"
+    port: 8000
+  codegraph:
+    host: "127.0.0.1"
+    port: 8001
+  gitlab:
+    host: "0.0.0.0"
+    port: 8002
+  oracle:
+    host: "0.0.0.0"
+    port: 8003
+
+webapp:
+  host: "127.0.0.1"
+  port: 5000
+
+pipeline:
+  batch_size: 50
+  tags_folder: "3 - Tags"
+  main_folder: "6 - Main Notes"
+  include_folders:
+    - "6 - Main Notes/Project"
