@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Obsidian → Knowledge Graph</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body x-data="vaultApp()" x-init="init()">
+
+<!-- ══════════════════════════════════════════════════════════════
+     TOP BAR
+     ══════════════════════════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <span class="brand-gem">◆</span>
+    <span class="brand-name">OBSIDIAN/KG</span>
+  </div>
+
+  <div class="topbar-tabs">
+    <button class="tab-btn" :class="screen === 'setup' ? 'active' : ''"
+            @click="screen = 'setup'">01_VAULT_SETUP</button>
+    <button class="tab-btn" :class="screen === 'process' ? 'active' : ''"
+            @click="screen = 'process'">02_PROCESS</button>
+    <button class="tab-btn" :class="screen === 'docs' ? 'active' : ''"
+            @click="screen = 'docs'">03_SPEC_DOCS</button>
+    <button class="tab-btn" :class="screen === 'dashboard' ? 'active' : ''"
+            @click="screen = 'dashboard'">04_DASHBOARD</button>
+    <button class="tab-btn" :class="screen === 'mcp' ? 'active' : ''"
+            @click="screen = 'mcp'">05_MCP_SERVERS</button>
+    <button class="tab-btn" :class="screen === 'settings' ? 'active' : ''"
+            @click="screen = 'settings'">06_SETTINGS</button>
+  </div>
+
+  <div class="topbar-end">
+    <span class="status-dot" :class="vault.connected ? 'on' : 'off'"></span>
+    <span class="status-text" :class="vault.connected ? 'on' : 'off'"
+          x-text="vault.connected ? 'VAULT CONNECTED' : 'NO VAULT'"></span>
+    <form method="POST" action="/logout" style="margin:0;margin-left:12px">
+      <button type="submit" class="tab-btn" style="border-right:none;color:var(--text3)">LOGOUT</button>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCREEN 1 — VAULT SETUP
+     ══════════════════════════════════════════════════════════════ -->
+<div class="screen" x-show="screen === 'setup'" style="display:none">
+  <div class="split split-setup">
+
+    <!-- LEFT PANE: connection + tree -->
+    <div class="pane pane-r">
+
+      <!-- Vault connection -->
+      <div class="p-sec">
+        <div class="section-hd">VAULT CONNECTION</div>
+        <div class="row-gap">
+          <input
+            x-model="vaultPathInput"
+            :class="vault.connected ? 'ok' : ''"
+            class="mono-input"
+            placeholder="C:\path\to\ObsidianVault"
+            @keydown.enter="connectVault()"
+          />
+          <button class="btn" :class="vault.connected ? 'btn-accent' : ''"
+                  @click="vault.connected ? changeVault() : connectVault()"
+                  :disabled="connecting">
+            <span x-show="connecting">SCANNING…</span>
+            <span x-show="!connecting && !vault.connected">VALIDATE</span>
+            <span x-show="!connecting && vault.connected">✓ CONNECTED</span>
+          </button>
+        </div>
+
+        <!-- Connected info row -->
+        <div class="info-row" x-show="vault.connected">
+          <span x-text="fmtNum(vault.document_count) + ' notes found'"></span>
+          <span class="sep">|</span>
+          <span x-text="vault.folder_count + ' top-level folders'"></span>
+          <span class="sep">|</span>
+          <button class="btn btn-ghost btn-sm" @click="changeVault()">CHANGE VAULT</button>
+        </div>
+
+        <p style="font-size:11px;color:var(--err);margin-top:8px"
+           x-show="connectError" x-text="connectError"></p>
+      </div>
+
+      <!-- Folder tree (visible after connect) -->
+      <template x-if="vault.connected && tree">
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+          <!-- Toolbar -->
+          <div class="folder-toolbar">
+            <span class="folder-toolbar-lbl"
+                  x-text="'FOLDERS — ' + selection.count + ' SELECTED'"></span>
+            <div class="row-gap">
+              <button class="btn btn-ghost btn-sm" @click="selectAll()">SELECT ALL</button>
+              <button class="btn btn-ghost btn-sm" @click="clearAll()">CLEAR</button>
+              <button class="btn btn-ghost btn-sm" @click="refreshTree()">↺ REFRESH</button>
+            </div>
+          </div>
+
+          <!-- Column headers -->
+          <div class="folder-col-hd">
+            <div></div>
+            <div style="padding-left:24px">NAME / PATH</div>
+            <div style="text-align:right">NOTES</div>
+            <div style="text-align:right">STATUS</div>
+          </div>
+
+          <!-- Tree rows -->
+          <div class="folder-scroll" x-html="renderTree()"></div>
+        </div>
+      </template>
+
+      <!-- Placeholder when not connected -->
+      <div class="connect-hint" x-show="!vault.connected">
+        <div class="hint-gem">◆</div>
+        <div class="hint-text">ENTER VAULT PATH TO CONTINUE</div>
+      </div>
+
+    </div><!-- /left pane -->
+
+    <!-- RIGHT PANE: summary + compliance + CTA -->
+    <div class="pane">
+
+      <!-- Parse summary grid -->
+      <div class="p-sec">
+        <div class="section-hd">PARSE SUMMARY</div>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="stat-lbl">FOLDERS</div>
+            <div class="stat-val accent" x-text="selection.count || '—'"></div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-lbl">NOTES</div>
+            <div class="stat-val accent"
+                 x-text="vault.connected ? fmtNum(selection.total_docs) : '—'"></div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-lbl">LLM</div>
+            <div class="stat-val" style="color:var(--text3)">DISABLED</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-lbl">MODE</div>
+            <div class="stat-val">INCREMENTAL</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Neo4j connection -->
+      <div class="p-sec">
+        <div class="section-hd">NEO4J CONNECTION</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <input class="mono-input" placeholder="bolt://localhost:7687"
+                 x-model="neo4j.uri" @keydown.enter="testNeo4j()" />
+          <div style="display:flex;gap:6px">
+            <input class="mono-input" placeholder="neo4j (user)"
+                   x-model="neo4j.user" style="flex:1" @keydown.enter="testNeo4j()" />
+            <input class="mono-input" type="password" placeholder="password"
+                   x-model="neo4j.password" style="flex:1" @keydown.enter="testNeo4j()" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+            <button class="btn btn-ghost btn-sm" @click="testNeo4j()"
+                    :disabled="neo4j.testing || !neo4j.uri">
+              <span x-show="!neo4j.testing">TEST CONNECTION</span>
+              <span x-show="neo4j.testing">TESTING…</span>
+            </button>
+            <span x-show="neo4j.status === 'ok'"
+                  style="font-size:10px;color:var(--accent)">✓ Connected</span>
+            <span x-show="neo4j.status === 'err'"
+                  style="font-size:10px;color:var(--err)" x-text="'✗ ' + neo4j.error"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compliance scan -->
+      <div class="p-sec grow">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="section-hd" style="margin-bottom:0;border:none;padding:0">COMPLIANCE SCAN</div>
+          <button class="btn btn-ghost btn-sm"
+                  @click="scanCompliance()"
+                  :disabled="!vault.connected || scanning">
+            <span x-show="!scanning">RUN SCAN</span>
+            <span x-show="scanning">SCANNING…</span>
+          </button>
+        </div>
+
+        <!-- Scanning progress -->
+        <div x-show="scanning" style="font-size:10px;color:var(--text3)">
+          <div style="margin-bottom:8px">Checking note format compliance…</div>
+          <div class="prog-track">
+            <div class="prog-scan-anim"></div>
+          </div>
+        </div>
+
+        <!-- Results table -->
+        <template x-if="compliance.scanned && !scanning && complianceRows.length > 0">
+          <div class="comp-scan">
+            <div class="comp-hdr">
+              <div>FOLDER</div>
+              <div style="text-align:center;color:var(--accent)">OK</div>
+              <div style="text-align:center;color:var(--warn)">WARN</div>
+              <div style="text-align:center;color:var(--err)">ERR</div>
+            </div>
+            <template x-for="row in complianceRows" :key="row.folder">
+              <div class="comp-row">
+                <div style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                     x-text="row.folder"></div>
+                <div style="text-align:center;color:var(--accent)" x-text="row.pass"></div>
+                <div style="text-align:center" :style="row.warn > 0 ? 'color:var(--warn)' : 'color:var(--text3)'"
+                     x-text="row.warn"></div>
+                <div style="text-align:center" :style="row.fail > 0 ? 'color:var(--err)' : 'color:var(--text3)'"
+                     x-text="row.fail"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Summary badge row when scanned but no rows -->
+        <div x-show="compliance.scanned && !scanning && complianceRows.length === 0"
+             style="font-size:10px;color:var(--text3)">
+          Select folders, then run scan to check note format compliance.
+        </div>
+
+        <!-- Hint when not yet scanned -->
+        <div x-show="!compliance.scanned && !scanning"
+             style="font-size:10px;color:var(--text3)">
+          Checks header format, status field, date stamp, and tag links before ingestion.
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="p-sec footer">
+        <button
+          class="btn btn-primary btn-lg"
+          @click="screen = 'process'"
+          :disabled="!vault.connected || selection.count === 0">
+          BUILD GRAPH →
+        </button>
+        <div x-show="vault.connected"
+             style="margin-top:8px;font-size:9px;color:var(--text3);text-align:center"
+             x-text="`${selection.count} folders · ${fmtNum(selection.total_docs)} notes · ${neo4j.uri || 'no neo4j'}`">
+        </div>
+        <div x-show="!vault.connected || selection.count === 0"
+             style="margin-top:8px;font-size:9px;color:var(--text3);text-align:center">
+          Connect a vault and select folders to continue.
+        </div>
+      </div>
+
+    </div><!-- /right pane -->
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCREEN 2 — PROCESS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="screen" x-show="screen === 'process'" style="display:none">
+  <div class="split split-process">
+
+    <!-- LEFT: terminal log -->
+    <div class="pane pane-r">
+
+      <!-- Log header -->
+      <div class="log-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:9px;letter-spacing:2px;color:var(--text3)">PROCESS LOG</span>
+          <span class="badge badge-accent" x-show="job.status === 'in_progress'">RUNNING</span>
+          <span class="badge badge-accent" x-show="job.status === 'completed'">COMPLETE</span>
+          <span class="badge badge-err"    x-show="job.status === 'failed'">FAILED</span>
+          <span class="badge badge-warn"   x-show="job.status === 'cancelled'">CANCELLED</span>
+          <span class="badge badge-default"
+                x-show="job.status === 'idle'">IDLE</span>
+        </div>
+        <span style="font-size:9px;color:var(--text3)"
+              x-text="fmtElapsed(elapsed) + ' elapsed'"></span>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="prog-track">
+        <div class="prog-fill" :style="`width:${job.pct}%`"></div>
+      </div>
+
+      <!-- Log body -->
+      <div class="log-body" id="log-body">
+        <div x-show="logLines.length === 0 && job.status === 'idle'"
+             style="color:var(--text3);font-size:11px">
+          $ ready — press RUN BUILD to start graph processing
+        </div>
+
+        <template x-for="(line, i) in logLines" :key="i">
+          <div class="log-line" :class="'log-' + line.type" x-text="line.text"></div>
+        </template>
+
+        <div class="cursor-blink" x-show="job.status === 'in_progress'">▌</div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: stats + phases + controls -->
+    <div class="pane">
+
+      <!-- Live stats -->
+      <div class="p-sec">
+        <div class="section-hd">LIVE STATS</div>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="stat-lbl">DOCS</div>
+            <div class="stat-val" :class="job.processed > 0 ? 'accent' : ''"
+                 x-text="fmtNum(job.processed)"></div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-lbl">TOTAL</div>
+            <div class="stat-val" :class="job.total > 0 ? 'accent' : ''"
+                 x-text="fmtNum(job.total)"></div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-lbl">NODES</div>
+            <div class="stat-val" :class="job.entities > 0 ? 'accent' : ''"
+                 x-text="fmtNum(job.entities)"></div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-lbl">EDGES</div>
+            <div class="stat-val" :class="job.relationships > 0 ? 'accent' : ''"
+                 x-text="fmtNum(job.relationships)"></div>
+          </div>
+        </div>
+
+        <!-- ETA / current folder -->
+        <div style="margin-top:10px;font-size:10px;color:var(--text3)" x-show="job.status === 'in_progress'">
+          <div x-show="job.current_folder"
+               style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px"
+               x-text="'→ ' + job.current_folder"></div>
+          <div x-show="job.eta > 0"
+               x-text="'~' + job.eta + 's remaining'"></div>
+        </div>
+      </div>
+
+      <!-- Phases -->
+      <div class="p-sec">
+        <div class="section-hd">PHASES</div>
+        <template x-for="(phase, i) in [
+            {label:'Vault Scan'},
+            {label:'Parse & Classify'},
+            {label:'Write to Neo4j'}
+          ]" :key="i">
+          <div class="phase-row">
+            <span class="phase-dot" :class="phaseState(i)"></span>
+            <span class="phase-lbl" :class="phaseState(i) === 'done' ? 'done' : ''"
+                  x-text="phase.label"></span>
+            <span class="phase-check" x-show="phaseState(i) === 'done'">✓</span>
+          </div>
+        </template>
+      </div>
+
+      <!-- Dry-run toggle -->
+      <div class="p-sec" x-show="job.status === 'idle'">
+        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" x-model="dryRun"
+                 style="accent-color:var(--accent);cursor:pointer" />
+          Dry run (parse only, no Neo4j writes)
+        </label>
+      </div>
+
+      <!-- Controls -->
+      <div class="p-sec footer" style="display:flex;flex-direction:column;gap:8px">
+
+        <!-- Idle -->
+        <template x-if="job.status === 'idle'">
+          <button class="btn btn-primary btn-lg"
+                  @click="showClearModal = true"
+                  :disabled="selection.count === 0">
+            ▶ RUN BUILD
+          </button>
+        </template>
+
+        <!-- In progress -->
+        <template x-if="job.status === 'in_progress'">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text2)">
+              <span x-text="job.processed + ' / ' + job.total + ' docs'"></span>
+              <span x-text="job.pct + '%'"></span>
+            </div>
+            <button class="btn btn-ghost btn-lg" @click="cancelProcessing()">
+              ◼ CANCEL
+            </button>
+          </div>
+        </template>
+
+        <!-- Completed -->
+        <template x-if="job.status === 'completed'">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="btn btn-primary btn-lg" @click="screen = 'dashboard'">
+              VIEW DASHBOARD →
+            </button>
+            <button class="btn btn-ghost btn-lg" @click="resetJob()">↺ REBUILD</button>
+            <div style="text-align:center;font-size:9px;color:var(--text3)"
+                 x-text="`${job.processed} docs · ${job.duration}s · ${job.failed} errors`"></div>
+          </div>
+        </template>
+
+        <!-- Failed / cancelled -->
+        <template x-if="job.status === 'failed' || job.status === 'cancelled'">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:10px;color:var(--err)"
+                 x-text="job.status === 'cancelled' ? '⚠ Cancelled.' : '✗ ' + job.error"></div>
+            <button class="btn btn-ghost btn-lg" @click="resetJob()">↺ TRY AGAIN</button>
+          </div>
+        </template>
+
+      </div><!-- /controls -->
+    </div><!-- /right pane -->
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCREEN 3 — SPEC DOCS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="screen" x-show="screen === 'docs'" style="display:none">
+  <div class="split split-docs">
+
+    <!-- LEFT: inputs + results list -->
+    <div class="pane pane-r">
+
+      <!-- Rule file -->
+      <div class="p-sec">
+        <div class="section-hd">RULE FILE</div>
+        <div class="row-gap">
+          <select x-model="docs.rulePath" class="mono-input select-input" style="flex:1">
+            <option value="">— select a rule —</option>
+            <template x-for="r in docs.rules" :key="r.path">
+              <option :value="r.path" x-text="r.name + '  [' + r.node_label + ']'"></option>
+            </template>
+            <option value="__custom__">Custom path…</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" @click="loadRules()" title="Refresh rule list">↺</button>
+        </div>
+        <div x-show="docs.rulePath === '__custom__'" style="margin-top:8px">
+          <input x-model="docs.customRulePath" class="mono-input" style="width:100%"
+                 placeholder="C:\path\to\rule.yaml" />
+        </div>
+        <div x-show="docs.rules.length === 0 && docs.rulePath !== '__custom__'"
+             style="margin-top:8px;font-size:10px;color:var(--text3)">
+          No rule files found in <span style="color:var(--text2)">parsing-rules/</span>.
+          Add a .yaml file or use a custom path.
+        </div>
+      </div>
+
+      <!-- Document -->
+      <div class="p-sec">
+        <div class="section-hd">DOCUMENT</div>
+        <input x-model="docs.docxPath" class="mono-input" style="width:100%;margin-bottom:8px"
+               placeholder="C:\path\to\spec.docx"
+               @keydown.enter="dryParseDoc()" />
+        <input x-model="docs.sourceLabel" class="mono-input" style="width:100%;font-size:10px"
+               placeholder="source label — e.g. UC36-SDD (optional)" />
+      </div>
+
+      <!-- Parse controls -->
+      <div class="p-sec" style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn btn-ghost" style="flex:1"
+                @click="dryParseDoc()"
+                :disabled="!(docs.rulePath === '__custom__' ? docs.customRulePath : docs.rulePath) || !docs.docxPath.trim() || docs.status === 'parsing'">
+          <span x-show="docs.status !== 'parsing'">⊹ DRY PARSE</span>
+          <span x-show="docs.status === 'parsing'">PARSING…</span>
+        </button>
+        <button class="btn btn-primary" style="flex:1"
+                @click="ingestDoc()"
+                :disabled="!(docs.rulePath === '__custom__' ? docs.customRulePath : docs.rulePath) || !docs.docxPath.trim() || docs.status === 'parsing'">
+          ↓ INGEST
+        </button>
+      </div>
+
+      <!-- Error banner -->
+      <div x-show="docs.error" class="p-sec" style="padding-top:10px;padding-bottom:10px;flex-shrink:0">
+        <div style="font-size:10px;color:var(--err)" x-text="docs.error"></div>
+      </div>
+
+      <!-- Results list -->
+      <template x-if="docs.items.length > 0">
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+          <div class="docs-list-hdr">
+            <div>ID</div>
+            <div>TITLE</div>
+            <div>CATEGORIES</div>
+          </div>
+          <div class="docs-list-scroll">
+            <template x-for="(item, i) in docs.items" :key="i">
+              <div class="docs-item-row" :class="docs.selectedItem === item ? 'selected' : ''"
+                   @click="docs.selectedItem = docs.selectedItem === item ? null : item">
+                <div>
+                  <span class="badge badge-default" x-text="item.req_id"></span>
+                </div>
+                <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                     x-text="item.title"></div>
+                <div style="display:flex;gap:3px;flex-wrap:wrap">
+                  <template x-for="cat in item.candidate_categories" :key="cat">
+                    <span class="badge badge-warn" x-text="cat"></span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Placeholder -->
+      <div x-show="docs.items.length === 0 && docs.status !== 'parsing'"
+           class="connect-hint" style="flex:1">
+        <div class="hint-gem" style="font-size:18px">⊹</div>
+        <div class="hint-text">SELECT RULE + DOCUMENT</div>
+      </div>
+
+    </div><!-- /left pane -->
+
+    <!-- RIGHT: stats or item detail -->
+    <div class="pane">
+
+      <!-- Item detail -->
+      <template x-if="docs.selectedItem">
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+          <div class="p-sec" style="flex-shrink:0">
+            <div class="section-hd">ITEM DETAIL</div>
+            <div style="font-size:11px;color:var(--text);margin-bottom:10px;line-height:1.5"
+                 x-text="docs.selectedItem.req_id + ' — ' + docs.selectedItem.title"></div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
+              <span class="badge badge-default" x-text="docs.nodeLabel"></span>
+              <template x-for="cat in docs.selectedItem.candidate_categories" :key="cat">
+                <span class="badge badge-warn" x-text="cat"></span>
+              </template>
+            </div>
+            <template x-for="[name, vals] in Object.entries(docs.selectedItem.named_extractions || {})" :key="name">
+              <div class="kv-row" x-show="vals && vals.length > 0">
+                <span class="kv-key" x-text="name"></span>
+                <span class="kv-val" x-text="vals.join(', ')"></span>
+              </div>
+            </template>
+          </div>
+          <div class="p-sec grow" style="overflow:hidden">
+            <div class="section-hd" style="flex-shrink:0">BODY</div>
+            <div class="docs-body-text" x-text="docs.selectedItem.body"></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Stats + hint (no item selected) -->
+      <template x-if="!docs.selectedItem">
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+
+          <!-- Parse result stats -->
+          <template x-if="docs.status === 'done'">
+            <div>
+              <div class="p-sec">
+                <div class="section-hd">PARSE RESULT</div>
+                <div class="stat-grid">
+                  <div class="stat-cell">
+                    <div class="stat-lbl">ITEMS</div>
+                    <div class="stat-val accent" x-text="docs.items.length"></div>
+                  </div>
+                  <div class="stat-cell">
+                    <div class="stat-lbl">LABEL</div>
+                    <div class="stat-val" style="font-size:11px" x-text="docs.nodeLabel"></div>
+                  </div>
+                  <div class="stat-cell">
+                    <div class="stat-lbl">CONTEXT</div>
+                    <div class="stat-val" style="font-size:12px"
+                         x-text="docs.contextLength.toLocaleString() + ' ch'"></div>
+                  </div>
+                  <div class="stat-cell">
+                    <div class="stat-lbl">MODE</div>
+                    <div class="stat-val" style="font-size:10px">
+                      <span x-show="docs.ingested" style="color:var(--accent)">INGESTED</span>
+                      <span x-show="!docs.ingested" style="color:var(--warn)">DRY RUN</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Category breakdown -->
+              <div class="p-sec" x-show="Object.keys(docsCategoryBreakdown()).length > 0">
+                <div class="section-hd">CATEGORIES</div>
+                <template x-for="[cat, count] in Object.entries(docsCategoryBreakdown())" :key="cat">
+                  <div class="breakdown-row">
+                    <div class="breakdown-labels">
+                      <span class="badge badge-warn" x-text="cat"></span>
+                      <span style="color:var(--text3);font-size:10px" x-text="count + ' items'"></span>
+                    </div>
+                    <div class="breakdown-track" style="margin-top:6px">
+                      <div class="breakdown-fill" style="background:var(--warn)"
+                           :style="`width:${Math.round(count / docs.items.length * 100)}%`"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Rule info -->
+              <div class="p-sec">
+                <div class="section-hd">SOURCE</div>
+                <div class="kv-row">
+                  <span class="kv-key">rule</span>
+                  <span class="kv-val" x-text="docs.ruleName"></span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">file</span>
+                  <span class="kv-val" x-text="docs.docxPath.split(/[/\\]/).pop()"></span>
+                </div>
+                <div class="kv-row" x-show="docs.sourceLabel">
+                  <span class="kv-key">label</span>
+                  <span class="kv-val" x-text="docs.sourceLabel"></span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Idle hint -->
+          <template x-if="docs.status === 'idle' || docs.status === 'error'">
+            <div class="connect-hint" style="flex:1">
+              <div style="font-size:9px;letter-spacing:1.5px;color:var(--text3);text-align:center;line-height:2.2">
+                SELECT A RULE FILE<br/>+ DOCUMENT PATH<br/>THEN PRESS DRY PARSE
+              </div>
+            </div>
+          </template>
+
+        </div>
+      </template>
+
+      <!-- Footer CTA -->
+      <div class="p-sec footer" style="display:flex;flex-direction:column;gap:8px">
+        <template x-if="docs.status === 'done' && !docs.ingested">
+          <button class="btn btn-primary btn-lg" @click="ingestDoc()">↓ INGEST INTO NEO4J</button>
+        </template>
+        <template x-if="docs.status === 'done' && docs.ingested">
+          <button class="btn btn-ghost btn-lg"
+                  @click="docs.status = 'idle'; docs.items = []; docs.selectedItem = null; docs.error = ''">
+            ⊹ PARSE ANOTHER
+          </button>
+        </template>
+        <template x-if="docs.status === 'done'">
+          <button class="btn btn-ghost btn-lg" @click="screen = 'dashboard'">VIEW DASHBOARD →</button>
+        </template>
+        <template x-if="docs.status !== 'done'">
+          <button class="btn btn-ghost btn-lg" @click="screen = 'process'">← BACK TO PROCESS</button>
+        </template>
+      </div>
+
+    </div><!-- /right pane -->
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCREEN 4 — DASHBOARD
+     ══════════════════════════════════════════════════════════════ -->
+<div class="screen" x-show="screen === 'dashboard'" style="display:none">
+  <div class="split split-dashboard">
+
+    <!-- LEFT: stats + search + table -->
+    <div class="pane pane-r">
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stats-cell">
+          <div class="stats-lbl">DOCUMENTS</div>
+          <div class="stats-val"
+               x-text="job.status === 'completed' ? fmtNum(job.processed) : fmtNum(vault.document_count)"></div>
+          <div class="stats-sub"
+               x-text="job.status === 'completed' ? job.failed + ' failed' : 'in vault'"></div>
+        </div>
+        <div class="stats-cell">
+          <div class="stats-lbl">NODES</div>
+          <div class="stats-val" x-text="fmtNum(job.entities)"></div>
+          <div class="stats-sub" x-text="job.status === 'completed' ? 'created' : 'run build first'"></div>
+        </div>
+        <div class="stats-cell">
+          <div class="stats-lbl">EDGES</div>
+          <div class="stats-val" x-text="fmtNum(job.relationships)"></div>
+          <div class="stats-sub" x-text="job.status === 'completed' ? 'relationships' : '—'"></div>
+        </div>
+        <div class="stats-cell">
+          <div class="stats-lbl">FOLDERS</div>
+          <div class="stats-val" x-text="selection.count || vault.folder_count || '—'"></div>
+          <div class="stats-sub"
+               x-text="selection.count ? selection.count + ' selected' : 'total'"></div>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="search-bar">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input
+            x-model="dashSearch"
+            class="search-input"
+            placeholder="search folders…"
+          />
+        </div>
+      </div>
+
+      <!-- Table header -->
+      <div class="table-hdr">
+        <div>NAME / PATH</div>
+        <div>COMPLIANCE</div>
+        <div style="text-align:right">DOCS</div>
+        <div style="text-align:right">STATUS</div>
+      </div>
+
+      <!-- Table body -->
+      <div class="table-scroll">
+        <template x-if="!vault.connected">
+          <div style="padding:24px;font-size:10px;color:var(--text3);text-align:center">
+            Connect a vault first.
+          </div>
+        </template>
+
+        <template x-for="folder in filteredFolders()" :key="folder.id">
+          <div class="table-row" :class="selectedFolder?.id === folder.id ? 'selected' : ''"
+               @click="selectedFolder = selectedFolder?.id === folder.id ? null : folder">
+            <div>
+              <div style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                   x-text="folder.name + '/'"></div>
+              <div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                   x-text="folder.path"></div>
+            </div>
+            <div>
+              <span class="badge" :class="complianceBadgeClass(folder)"
+                    x-text="complianceBadgeLabel(folder)"></span>
+            </div>
+            <div style="font-size:10px;color:var(--text2);text-align:right"
+                 x-text="folder.document_count"></div>
+            <div style="text-align:right">
+              <span class="badge" :class="selection.ids.has(folder.id) ? 'badge-accent' : 'badge-default'"
+                    x-text="selection.ids.has(folder.id) ? 'SELECTED' : 'SKIP'"></span>
+            </div>
+          </div>
+        </template>
+
+        <div x-show="vault.connected && filteredFolders().length === 0 && dashSearch"
+             style="padding:24px;font-size:10px;color:var(--text3);text-align:center">
+          no results
+        </div>
+      </div>
+
+    </div><!-- /left pane -->
+
+    <!-- RIGHT: detail or breakdown + actions -->
+    <div class="pane">
+
+      <!-- Folder detail (when selected) -->
+      <div x-show="selectedFolder" style="flex:1;overflow-y:auto;border-bottom:1px solid var(--border)">
+        <div class="p-sec" style="border-bottom:none;padding-bottom:0">
+          <div class="section-hd">FOLDER DETAIL</div>
+        </div>
+        <div style="padding:0 24px 20px">
+          <div style="font-size:14px;color:var(--text);margin-bottom:10px"
+               x-text="selectedFolder?.name + '/'"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+            <span class="badge" :class="selectedFolder ? complianceBadgeClass(selectedFolder) : 'badge-default'"
+                  x-text="selectedFolder ? 'COMPLIANCE: ' + complianceBadgeLabel(selectedFolder) : ''"></span>
+            <span class="badge" :class="selection.ids.has(selectedFolder?.id) ? 'badge-accent' : 'badge-default'"
+                  x-text="selection.ids.has(selectedFolder?.id) ? 'SELECTED' : 'SKIP'"></span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-key">path</span>
+            <span class="kv-val" x-text="selectedFolder?.path"></span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-key">docs</span>
+            <span class="kv-val" x-text="selectedFolder?.document_count"></span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-key">compliant</span>
+            <span class="kv-val" style="color:var(--accent)" x-text="selectedFolder?.compliant_docs ?? '—'"></span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-key">legacy</span>
+            <span class="kv-val" style="color:var(--warn)" x-text="selectedFolder?.legacy_docs ?? '—'"></span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-key">unknown</span>
+            <span class="kv-val" style="color:var(--err)" x-text="selectedFolder?.unrecognized_docs ?? '—'"></span>
+          </div>
+
+          <!-- Sub-folders -->
+          <template x-if="selectedFolder?.children?.length > 0">
+            <div style="margin-top:16px">
+              <div style="font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:8px">SUB-FOLDERS</div>
+              <template x-for="child in selectedFolder.children" :key="child.id">
+                <div @click="selectedFolder = child"
+                     style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text2);cursor:pointer;display:flex;justify-content:space-between">
+                  <span x-text="child.name + '/'"></span>
+                  <span style="color:var(--text3)" x-text="child.document_count + ' docs'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Graph breakdown (when no folder selected) -->
+      <div x-show="!selectedFolder" style="flex:1;overflow-y:auto;border-bottom:1px solid var(--border)">
+        <div class="p-sec" style="border-bottom:none">
+          <div class="section-hd">GRAPH BREAKDOWN</div>
+          <template x-if="job.status === 'completed'">
+            <div>
+              <template x-for="row in dashBreakdown()" :key="row.label">
+                <div class="breakdown-row">
+                  <div class="breakdown-labels">
+                    <span style="color:var(--text2)" x-text="row.label"></span>
+                    <span style="color:var(--text3)" x-text="fmtNum(row.count)"></span>
+                  </div>
+                  <div class="breakdown-track">
+                    <div class="breakdown-fill" :style="`width:${row.pct}%`"></div>
+                  </div>
+                </div>
+              </template>
+              <div style="margin-top:16px;font-size:9px;color:var(--text3)"
+                   x-text="`Built in ${job.duration}s · ${job.processed} docs · ${job.failed} errors`"></div>
+            </div>
+          </template>
+          <template x-if="job.status !== 'completed'">
+            <div style="font-size:10px;color:var(--text3)">
+              Run a graph build to see breakdown stats here.
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="p-sec footer" style="display:flex;flex-direction:column;gap:8px">
+        <div class="section-hd">ACTIONS</div>
+        <a href="http://localhost:7474" target="_blank" rel="noopener noreferrer"
+           style="text-decoration:none">
+          <button class="btn btn-primary btn-lg">↗ OPEN NEO4J BROWSER</button>
+        </a>
+        <button class="btn btn-ghost btn-lg" @click="screen = 'process'">↺ REBUILD GRAPH</button>
+        <button class="btn btn-ghost btn-lg" @click="screen = 'setup'">← BACK TO SETUP</button>
+        <div style="font-size:9px;text-align:center;margin-top:4px;color:var(--text3)"
+             x-text="job.status === 'completed'
+               ? 'Last built: ' + fmtNum(job.processed) + ' docs · ' + job.duration + 's'
+               : 'No build completed yet'">
+        </div>
+      </div>
+
+    </div><!-- /right pane -->
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCREEN 5 — MCP SERVERS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="screen" x-show="screen === 'mcp'" style="display:none"
+     x-init="$watch('screen', v => { if (v==='mcp') mcpStartPolling(); else mcpStopPolling(); })">
+  <div class="split split-dashboard">
+
+    <!-- LEFT: server list + bulk actions -->
+    <div class="pane pane-r">
+
+      <!-- Bulk action bar -->
+      <div class="p-sec" style="flex-shrink:0;padding-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:9px;letter-spacing:2px;color:var(--text3)">MCP SERVERS</span>
+            <span class="badge badge-accent"
+                  x-text="mcp.servers.filter(s=>s.running).length + ' RUNNING'"></span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" @click="mcpStartAll()"
+                    :disabled="mcp.busy === 'all'">
+              <span x-show="mcp.busy !== 'all'">▶ START ALL</span>
+              <span x-show="mcp.busy === 'all'">…</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" @click="mcpStopAll()"
+                    :disabled="mcp.busy === 'all'">◼ STOP ALL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Server rows -->
+      <div style="flex:1;overflow-y:auto">
+        <template x-for="s in mcp.servers" :key="s.name">
+          <div class="table-row" style="cursor:pointer;align-items:center"
+               :class="mcp.selected === s.name ? 'selected' : ''"
+               @click="mcpSelect(s.name)">
+            <!-- Status dot -->
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+              <span class="status-dot" :class="s.running ? 'on' : 'off'"
+                    style="flex-shrink:0"></span>
+              <div style="min-width:0">
+                <div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                     x-text="s.label"></div>
+                <div style="font-size:9px;color:var(--text3);margin-top:1px"
+                     x-text="':' + s.port + (s.running && s.uptime ? '  ↑ ' + fmtUptime(s.uptime) : '  STOPPED')"></div>
+              </div>
+            </div>
+            <!-- Quick action -->
+            <div style="flex-shrink:0;margin-left:12px">
+              <button class="btn btn-ghost btn-sm"
+                      :disabled="mcp.busy === s.name"
+                      @click.stop="s.running ? mcpAction(s.name,'stop') : mcpAction(s.name,'start')">
+                <span x-show="mcp.busy !== s.name" x-text="s.running ? '◼' : '▶'"></span>
+                <span x-show="mcp.busy === s.name">…</span>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <div x-show="mcp.servers.length === 0"
+             style="padding:32px;font-size:10px;color:var(--text3);text-align:center">
+          Loading…
+        </div>
+      </div>
+
+    </div><!-- /left pane -->
+
+    <!-- RIGHT: selected server detail -->
+    <div class="pane">
+
+      <!-- Detail when selected -->
+      <template x-if="mcpSelectedServer()">
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+
+          <!-- Header -->
+          <div class="p-sec" style="flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <span class="status-dot" :class="mcpSelectedServer().running ? 'on' : 'off'"></span>
+              <span style="font-size:13px;color:var(--text)" x-text="mcpSelectedServer().label"></span>
+              <span class="badge" :class="mcpSelectedServer().running ? 'badge-accent' : 'badge-default'"
+                    x-text="mcpSelectedServer().running ? 'RUNNING' : 'STOPPED'"></span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">endpoint</span>
+              <span class="kv-val" style="color:var(--accent);font-size:10px"
+                    x-text="mcpSelectedServer().sse_url"></span>
+            </div>
+            <div class="kv-row" x-show="mcpSelectedServer().pid">
+              <span class="kv-key">pid</span>
+              <span class="kv-val" x-text="mcpSelectedServer().pid"></span>
+            </div>
+            <div class="kv-row" x-show="mcpSelectedServer().running && mcpSelectedServer().uptime">
+              <span class="kv-key">uptime</span>
+              <span class="kv-val" x-text="fmtUptime(mcpSelectedServer().uptime)"></span>
+            </div>
+          </div>
+
+          <!-- Process controls -->
+          <div class="p-sec" style="flex-shrink:0">
+            <div class="section-hd">CONTROLS</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" style="flex:1"
+                      :disabled="mcpSelectedServer().running || mcp.busy === mcp.selected"
+                      @click="mcpAction(mcp.selected, 'start')">
+                ▶ START
+              </button>
+              <button class="btn btn-ghost" style="flex:1"
+                      :disabled="!mcpSelectedServer().running || mcp.busy === mcp.selected"
+                      @click="mcpAction(mcp.selected, 'stop')">
+                ◼ STOP
+              </button>
+              <button class="btn btn-ghost" style="flex:1"
+                      :disabled="mcp.busy === mcp.selected"
+                      @click="mcpAction(mcp.selected, 'restart')">
+                ↺ RESTART
+              </button>
+            </div>
+            <div x-show="mcp.busy === mcp.selected"
+                 style="margin-top:8px;font-size:10px;color:var(--text3)">Working…</div>
+            <div x-show="mcp.error"
+                 style="margin-top:8px;font-size:10px;color:var(--err)" x-text="mcp.error"></div>
+          </div>
+
+          <!-- Config editor -->
+          <div class="p-sec" style="flex-shrink:0">
+            <div class="section-hd">CONFIG</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;color:var(--text3);width:36px">HOST</span>
+                <input class="mono-input" style="flex:1" x-model="mcp.configEdit.host" />
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;color:var(--text3);width:36px">PORT</span>
+                <input class="mono-input" style="flex:1" type="number"
+                       x-model.number="mcp.configEdit.port" />
+              </div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end;margin-top:4px"
+                      @click="mcpSaveConfig(mcp.selected)"
+                      :disabled="mcp.busy === mcp.selected">
+                SAVE &amp; RESTART
+              </button>
+            </div>
+          </div>
+
+          <!-- Credentials editor -->
+          <div class="p-sec" style="flex-shrink:0">
+            <div class="section-hd">CREDENTIALS</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <template x-for="f in (mcp.creds[mcp.selected] || [])" :key="f.key">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:9px;color:var(--text3);width:80px;flex-shrink:0"
+                        x-text="f.label.toUpperCase()"></span>
+                  <input style="flex:1" class="mono-input"
+                         :type="f.secret ? 'password' : 'text'"
+                         :placeholder="f.is_set ? '••••••• (set)' : f.placeholder"
+                         x-model="mcp.credEdit[mcp.selected + '.' + f.key]" />
+                  <span style="font-size:9px;width:12px;flex-shrink:0"
+                        :style="f.is_set ? 'color:var(--accent)' : 'color:var(--text3)'"
+                        x-text="f.is_set ? '✓' : '○'"></span>
+                </div>
+              </template>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end;margin-top:4px"
+                      @click="mcpSaveCreds(mcp.selected)"
+                      :disabled="mcp.busy === mcp.selected">
+                SAVE CREDENTIALS
+              </button>
+              <div x-show="mcp.credError" style="font-size:10px;color:var(--err)"
+                   x-text="mcp.credError"></div>
+              <div x-show="mcp.credOk" style="font-size:10px;color:var(--accent)">Saved.</div>
+            </div>
+          </div>
+
+        </div>
+      </template>
+
+      <!-- Placeholder when nothing selected -->
+      <template x-if="!mcpSelectedServer()">
+        <div class="connect-hint" style="flex:1">
+          <div class="hint-gem" style="font-size:18px">◈</div>
+          <div class="hint-text">SELECT A SERVER</div>
+        </div>
+      </template>
+
+    </div><!-- /right pane -->
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCREEN 6 — SETTINGS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="screen" x-show="screen === 'settings'" style="display:none"
+     x-init="$watch('screen', v => { if (v === 'settings') loadWebappCreds(); })">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;display:flex;flex-direction:column;gap:0">
+
+    <!-- Webapp credentials -->
+    <div class="p-sec">
+      <div class="section-hd">WEBAPP CREDENTIALS</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:14px">
+        Neo4j connection used by the webapp itself for graph queries and compliance scanning.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <template x-for="f in settings.webapp.fields" :key="f.key">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:9px;color:var(--text3);width:100px;flex-shrink:0"
+                  x-text="f.label.toUpperCase()"></span>
+            <input style="flex:1" class="mono-input"
+                   :type="f.secret ? 'password' : 'text'"
+                   :placeholder="f.is_set ? '••••••• (set)' : f.placeholder"
+                   x-model="settings.webapp.values[f.key]" />
+            <span style="font-size:9px;width:12px;flex-shrink:0"
+                  :style="f.is_set ? 'color:var(--accent)' : 'color:var(--text3)'"
+                  x-text="f.is_set ? '✓' : '○'"></span>
+          </div>
+        </template>
+        <button class="btn btn-ghost btn-sm" style="align-self:flex-end;margin-top:4px"
+                :disabled="settings.webapp.saving"
+                @click="saveWebappCreds()">
+          <span x-show="!settings.webapp.saving">SAVE CREDENTIALS</span>
+          <span x-show="settings.webapp.saving">Saving…</span>
+        </button>
+        <div x-show="settings.webapp.error" style="font-size:10px;color:var(--err)"
+             x-text="settings.webapp.error"></div>
+        <div x-show="settings.webapp.ok" style="font-size:10px;color:var(--accent)">Saved.</div>
+      </div>
+    </div>
+
+    <!-- Change password -->
+    <div class="p-sec" style="margin-top:24px">
+      <div class="section-hd">CHANGE PASSWORD</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:9px;color:var(--text3);width:100px;flex-shrink:0">CURRENT</span>
+          <input class="mono-input" style="flex:1" type="password"
+                 x-model="settings.password.current" />
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:9px;color:var(--text3);width:100px;flex-shrink:0">NEW</span>
+          <input class="mono-input" style="flex:1" type="password"
+                 x-model="settings.password.new" placeholder="Min 8 characters" />
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:9px;color:var(--text3);width:100px;flex-shrink:0">CONFIRM</span>
+          <input class="mono-input" style="flex:1" type="password"
+                 x-model="settings.password.confirm" />
+        </div>
+        <button class="btn btn-ghost btn-sm" style="align-self:flex-end;margin-top:4px"
+                :disabled="settings.password.saving"
+                @click="changePassword()">
+          <span x-show="!settings.password.saving">CHANGE PASSWORD</span>
+          <span x-show="settings.password.saving">Saving…</span>
+        </button>
+        <div x-show="settings.password.error" style="font-size:10px;color:var(--err)"
+             x-text="settings.password.error"></div>
+        <div x-show="settings.password.ok" style="font-size:10px;color:var(--accent)">Password changed. Re-login required on next session.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     CLEAR GRAPH MODAL
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" x-show="showClearModal" style="display:none"
+     @keydown.escape.window="showClearModal = false">
+  <div class="modal" @click.stop>
+
+    <div class="modal-header">
+      <span style="color:var(--warn);font-size:11px">⚠</span>
+      <span class="modal-title">CLEAR EXISTING GRAPH?</span>
+    </div>
+
+    <div class="modal-body">
+      <p>You are about to build the knowledge graph for
+        <span style="color:var(--text)" x-text="selection.count + ' folder(s) · ' + fmtNum(selection.total_docs) + ' docs'"></span>.
+      </p>
+      <p style="margin-top:10px">
+        Choose whether to <strong style="color:var(--text)">clear all existing nodes and relationships</strong>
+        from Neo4j before writing, or keep them and upsert on top.
+      </p>
+      <div class="modal-warn-box">
+        ◼ CLEAR &amp; BUILD — deletes every node and relationship in the database first.
+        This cannot be undone.
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm"
+              @click="showClearModal = false">
+        CANCEL
+      </button>
+      <button class="btn btn-sm"
+              style="border-color:var(--border2);color:var(--text2)"
+              @click="showClearModal = false; startProcessing(false)">
+        KEEP &amp; BUILD
+      </button>
+      <button class="btn btn-sm"
+              style="background:oklch(0.65 0.18 25 / 0.15);border-color:var(--err);color:var(--err)"
+              @click="showClearModal = false; startProcessing(true)">
+        CLEAR &amp; BUILD
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/js/app.js?v=3"></script>
+</body>
+</html>
