@@ -217,6 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# NAA webapp runtime state (contains password hash + session key)
-webapp/auth.json
-webapp/mcp_state.json
+# VS Code
+.vscode/

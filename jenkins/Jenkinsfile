@@ -1,0 +1,51 @@
+// NAA — Neo4j Lifecycle Pipeline
+// Manages start / stop / wipe-and-seed of the docgraph and codegraph Neo4j containers.
+// Triggered manually from the Jenkins UI or via the NAA webapp controls.
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ACTION',
+            choices: ['start', 'stop', 'restart', 'wipe-and-seed'],
+            description: 'Operation to perform on the Neo4j containers'
+        )
+        choice(
+            name: 'TARGET',
+            choices: ['both', 'docgraph', 'codegraph'],
+            description: 'Which Neo4j instance to target'
+        )
+    }
+
+    environment {
+        COMPOSE_FILE = "${WORKSPACE}/../docker/docker-compose.yml"
+        DOCGRAPH_NEO4J_PASSWORD = credentials('naa-docgraph-neo4j-password')
+        CODEGRAPH_NEO4J_PASSWORD = credentials('naa-codegraph-neo4j-password')
+    }
+
+    stages {
+        stage('Execute') {
+            steps {
+                script {
+                    def services = params.TARGET == 'both' ? '' : "naa-${params.TARGET}"
+                    switch (params.ACTION) {
+                        case 'start':
+                            sh "docker compose -f ${env.COMPOSE_FILE} up -d ${services}"
+                            break
+                        case 'stop':
+                            sh "docker compose -f ${env.COMPOSE_FILE} stop ${services}"
+                            break
+                        case 'restart':
+                            sh "docker compose -f ${env.COMPOSE_FILE} restart ${services}"
+                            break
+                        case 'wipe-and-seed':
+                            sh "docker compose -f ${env.COMPOSE_FILE} down -v ${services}"
+                            sh "docker compose -f ${env.COMPOSE_FILE} up -d ${services}"
+                            break
+                    }
+                }
+            }
+        }
+    }
+}

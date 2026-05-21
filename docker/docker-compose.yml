@@ -1,0 +1,35 @@
+services:
+
+  docgraph-neo4j:
+    image: neo4j:5
+    container_name: naa-docgraph
+    ports:
+      - "7474:7474"   # Browser
+      - "7687:7687"   # Bolt
+    environment:
+      - NEO4J_AUTH=${DOCGRAPH_NEO4J_USER:-neo4j}/${DOCGRAPH_NEO4J_PASSWORD:?Set DOCGRAPH_NEO4J_PASSWORD}
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - docgraph_data:/data
+      - docgraph_logs:/logs
+    restart: unless-stopped
+
+  codegraph-neo4j:
+    image: neo4j:5
+    container_name: naa-codegraph
+    ports:
+      - "7475:7474"   # Browser (host 7475 → container 7474)
+      - "7688:7687"   # Bolt   (host 7688 → container 7687)
+    environment:
+      - NEO4J_AUTH=${CODEGRAPH_NEO4J_USER:-neo4j}/${CODEGRAPH_NEO4J_PASSWORD:?Set CODEGRAPH_NEO4J_PASSWORD}
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - codegraph_data:/data
+      - codegraph_logs:/logs
+    restart: unless-stopped
+
+volumes:
+  docgraph_data:
+  docgraph_logs:
+  codegraph_data:
+  codegraph_logs:
