@@ -1,0 +1,36 @@
+id: git
+label: "Git MCP"
+cmd: ["python", "-m", "git_mcp"]
+host: "0.0.0.0"
+port: 8002
+env_file: .env
+
+credentials:
+  - key: GIT_PROVIDER
+    label: "Provider"
+    secret: false
+    placeholder: "gitlab or github"
+  - key: GITLAB_URL
+    label: "GitLab URL"
+    secret: false
+    placeholder: "https://gitlab.example.com"
+  - key: GITLAB_TOKEN
+    label: "GitLab Token"
+    secret: true
+    placeholder: "glpat-..."
+  - key: GITLAB_PROJECT_ID
+    label: "GitLab Project ID"
+    secret: false
+    placeholder: "42"
+  - key: GITLAB_SSL_VERIFY
+    label: "GitLab SSL Verify"
+    secret: false
+    placeholder: "true"
+  - key: GITHUB_TOKEN
+    label: "GitHub Token"
+    secret: true
+    placeholder: "ghp_..."
+  - key: GITHUB_REPO
+    label: "GitHub Repo"
+    secret: false
+    placeholder: "owner/repo"
