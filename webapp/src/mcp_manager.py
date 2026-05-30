@@ -13,51 +13,17 @@ import logging
 import os
 import socket
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT  = Path(__file__).parent.parent.parent
 _STATE_FILE = Path(__file__).parent.parent / "mcp_state.json"
 
-# Server definitions — cmd paths are relative to cwd
-SERVERS: dict[str, dict[str, Any]] = {
-    "knowledge-graph": {
-        "label":   "Knowledge Graph MCP",
-        "cmd":     [sys.executable, "src/server.py"],
-        "cwd":     _REPO_ROOT / "mcp",
-        "port":    8000,
-        "host":    "127.0.0.1",
-        "sse_url": "http://127.0.0.1:8000/sse",
-    },
-    "codegraph": {
-        "label":   "Code Graph MCP",
-        "cmd":     [sys.executable, "-m", "codegraph_mcp"],
-        "cwd":     _REPO_ROOT / "mcp" / "codegraph",
-        "port":    8001,
-        "host":    "127.0.0.1",
-        "sse_url": "http://127.0.0.1:8001/sse",
-    },
-    "gitlab": {
-        "label":   "GitLab MCP",
-        "cmd":     [sys.executable, "-m", "gitlab_mcp"],
-        "cwd":     _REPO_ROOT / "mcp" / "gitlab",
-        "port":    8002,
-        "host":    "0.0.0.0",
-        "sse_url": "http://localhost:8002/sse",
-    },
-    "oracle": {
-        "label":   "Oracle MCP",
-        "cmd":     [sys.executable, "oracle_11g/src/oracle_mcp_server.py"],
-        "cwd":     _REPO_ROOT / "mcp" / "oracle",
-        "port":    8003,
-        "host":    "0.0.0.0",
-        "sse_url": "http://localhost:8003/sse",
-    },
-}
+from .mcp_registry import discover_servers as _discover_servers  # noqa: E402
+
+SERVERS: dict[str, dict[str, Any]] = _discover_servers()
 
 
 def _port_open(host: str, port: int) -> bool:

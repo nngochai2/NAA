@@ -1,0 +1,44 @@
+id: oracle
+label: "Oracle MCP"
+cmd: ["python", "oracle_11g/src/oracle_mcp_server.py"]
+host: "0.0.0.0"
+port: 8003
+env_file: .env
+
+credentials:
+  - key: ORACLE_HOST
+    label: "Host"
+    secret: false
+    placeholder: "localhost"
+  - key: ORACLE_PORT
+    label: "Port"
+    secret: false
+    placeholder: "1521"
+  - key: ORACLE_SERVICE
+    label: "Service Name"
+    secret: false
+    placeholder: "ORCL"
+  - key: ORACLE_SID
+    label: "SID"
+    secret: false
+    placeholder: "ORCL"
+  - key: ORACLE_USER
+    label: "User"
+    secret: false
+    placeholder: "system"
+  - key: ORACLE_PASSWORD
+    label: "Password"
+    secret: true
+    placeholder: ""
+  - key: ORACLE_CLIENT_LIB_DIR
+    label: "Client Lib Dir"
+    secret: false
+    placeholder: "C:/oracle/instantclient"
+  - key: ORACLE_DEFAULT_SCHEMA
+    label: "Default Schema"
+    secret: false
+    placeholder: ""
+  - key: ALLOWED_SCHEMAS
+    label: "Allowed Schemas"
+    secret: false
+    placeholder: "SCHEMA1,SCHEMA2"

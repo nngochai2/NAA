@@ -1,0 +1,24 @@
+id: knowledge-graph
+label: "Knowledge Graph MCP"
+cmd: ["python", "src/server.py"]
+host: "127.0.0.1"
+port: 8000
+env_file: .env
+
+credentials:
+  - key: NEO4J_URI
+    label: "Neo4j URI"
+    secret: false
+    placeholder: "bolt://localhost:7687"
+  - key: NEO4J_USER
+    label: "Neo4j User"
+    secret: false
+    placeholder: "neo4j"
+  - key: NEO4J_PASSWORD
+    label: "Neo4j Password"
+    secret: true
+    placeholder: ""
+  - key: VAULT_ROOT
+    label: "Vault Root"
+    secret: false
+    placeholder: "C:/path/to/vault"
