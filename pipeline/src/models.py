@@ -28,6 +28,7 @@ class Note:
     word_count:   int            = 0
     body:         str            = ""
     summary:      str            = ""
+    metadata:     dict           = field(default_factory=dict)
  
     @property
     def node_id(self) -> str:
