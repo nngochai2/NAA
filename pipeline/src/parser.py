@@ -1,8 +1,9 @@
 import re
 import hashlib
+import yaml
 from collections.abc import Callable
 from pathlib import Path
- 
+
 from models import Note, WikiLink
 from config import (
     MAIN_FOLDER,
@@ -44,6 +45,57 @@ def extract_wikilinks_from_text(text: str, is_tag_section: bool = False) -> list
     return links
  
  
+_YAML_FENCE = re.compile(r"^---\s*$")
+
+
+def parse_yaml_frontmatter(
+    lines: list[str],
+) -> tuple[str, str, list[WikiLink], dict, int]:
+    """
+    Parse a YAML frontmatter block (--- ... ---).
+
+    Returns (created_at, status, links, metadata, body_start_line_index).
+    `links` contains both TAGGED_WITH entries (from `tags:`) and LINKS_TO
+    entries (from `related:`).  `metadata` holds all other YAML keys.
+    Returns all-empty values and body_start=0 on malformed frontmatter.
+    """
+    end = None
+    for i, line in enumerate(lines[1:], start=1):
+        if _YAML_FENCE.match(line):
+            end = i
+            break
+    if end is None:
+        return "", "", [], {}, 0
+
+    try:
+        data: dict = yaml.safe_load("\n".join(lines[1:end])) or {}
+    except yaml.YAMLError:
+        return "", "", [], {}, 0
+    if not isinstance(data, dict):
+        return "", "", [], {}, 0
+
+    created_raw = data.get("created")
+    created_at  = str(created_raw) if created_raw is not None else ""
+    status      = str(data.get("status", ""))
+
+    links: list[WikiLink] = []
+    for tag in data.get("tags") or []:
+        tag_str = str(tag).strip()
+        if tag_str:
+            links.append(WikiLink(target=tag_str, alias=tag_str, context="",
+                                  relationship="TAGGED_WITH", is_tag_link=True))
+    for ref in data.get("related") or []:
+        ref_str = str(ref).strip()
+        if ref_str:
+            links.append(WikiLink(target=ref_str, alias=ref_str, context="",
+                                  relationship="LINKS_TO"))
+
+    known = {"title", "created", "status", "tags", "related"}
+    metadata = {k: v for k, v in data.items() if k not in known and v is not None}
+
+    return created_at, status, links, metadata, end + 1
+
+
 def parse_header(lines: list[str]) -> tuple[str, str, list[WikiLink], int]:
     """
     Parse custom Obsidian header (non-YAML).
@@ -136,28 +188,20 @@ def parse_note(
     folder_hint: str,
     llm_classifier: Callable[[str, str], str] | None = None,
 ) -> Note:
-    # Read file content with fallback for encoding errors
-    raw    = path.read_text(encoding="utf-8", errors="replace")
-    lines  = raw.splitlines()
-   
-    # Parse custom header to extract metadata (created_at, status, tags)
-    # header_end marks where the body content begins
-    created_at, status, tag_links, header_end = parse_header(lines)
-   
-    # Extract body content (everything after header)
+    raw   = path.read_text(encoding="utf-8", errors="replace")
+    lines = raw.splitlines()
+
+    metadata: dict = {}
+    if lines and _YAML_FENCE.match(lines[0]):
+        created_at, status, header_links, metadata, header_end = parse_yaml_frontmatter(lines)
+    else:
+        created_at, status, header_links, header_end = parse_header(lines)
+
     body       = "\n".join(lines[header_end:])
-   
-    # Parse wiki links from body; note that tag links are already captured in header
     body_links = extract_wikilinks_from_text(body, is_tag_section=False)
-   
-    # Use filename as note title (without extension)
     title      = path.stem
-   
-    # Determine note type using subfolder hint, content signal matching, or LLM fallback
     note_type  = classify_note(title, folder_hint, body, llm_classifier)
-   
-    # Combine tag links from header with wiki links from body
-    # Order matters: header tags typically have higher priority
+
     return Note(
         path         = path.relative_to(vault_root),
         title        = title,
@@ -165,10 +209,11 @@ def parse_note(
         subfolder    = folder_hint,
         status       = status,
         created_at   = created_at,
-        links        = tag_links + body_links,
+        links        = header_links + body_links,
         content_hash = hashlib.md5(raw.encode()).hexdigest(),
         word_count   = len(body.split()),
-        body         = body[:5000],  # Truncate to 5000 chars to avoid storing large content
+        body         = body[:5000],
+        metadata     = metadata,
     )
  
  

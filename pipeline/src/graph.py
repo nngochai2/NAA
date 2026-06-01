@@ -70,8 +70,9 @@ class GraphBuilder:
             "backlink_count": len(n.backlinks),
             "body":           n.body,
             "summary":        n.summary or n.body[:300],
+            "metadata":       json.dumps(n.metadata) if n.metadata else "",
         } for n in notes]
- 
+
         cypher = """
             UNWIND $rows AS row
             MERGE (n:Note {id: row.id})
@@ -85,7 +86,8 @@ class GraphBuilder:
                 n.hash           = row.hash,
                 n.backlink_count = row.backlink_count,
                 n.body           = row.body,
-                n.summary        = row.summary
+                n.summary        = row.summary,
+                n.metadata       = row.metadata
         """
         with self.driver.session() as s:
             for i in range(0, len(rows), BATCH_SIZE):
