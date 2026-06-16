@@ -23,6 +23,9 @@ mcp_servers:
   oracle:
     host: "0.0.0.0"
     port: 8003
+  azure_devops:
+    host: "0.0.0.0"
+    port: 8004
 
 webapp:
   host: "127.0.0.1"
