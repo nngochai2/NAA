@@ -1,0 +1,32 @@
+id: azure-devops
+label: "Azure DevOps MCP"
+cmd: ["python", "src/ado_mcp_server.py"]
+host: "0.0.0.0"
+port: 8004
+env_file: .env
+
+credentials:
+  - key: ADO_BASE_URL
+    label: "ADO Base URL"
+    secret: false
+    placeholder: "http://192.168.1.50/DefaultCollection"
+  - key: ADO_PROJECT
+    label: "Project Name"
+    secret: false
+    placeholder: "MyProject"
+  - key: ADO_USERNAME
+    label: "Username"
+    secret: false
+    placeholder: ""
+  - key: ADO_PASSWORD
+    label: "Password"
+    secret: true
+    placeholder: ""
+  - key: ADO_API_VERSION
+    label: "API Version"
+    secret: false
+    placeholder: "5.0"
+  - key: NO_PROXY
+    label: "No Proxy"
+    secret: false
+    placeholder: ""
