@@ -1,7 +1,13 @@
 import os
+import logging
 import atexit
 from mcp.server.fastmcp import FastMCP
 import graph_client
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 from tools.dependencies import get_class_dependencies, get_transitive_impact
 from tools.callers import find_method_callers
 from tools.fields import get_field_impact
