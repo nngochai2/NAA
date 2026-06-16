@@ -5,6 +5,7 @@ from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.types import TextContent
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.routing import Mount, Route
 
 from .tools import ALL_TOOLS, TOOL_HANDLERS
@@ -28,8 +29,8 @@ async def call_tool(name: str, arguments: dict):
 def create_starlette_app() -> Starlette:
     sse = SseServerTransport("/messages/")
 
-    async def handle_sse(scope, receive, send):
-        async with sse.connect_sse(scope, receive, send) as (read, write):
+    async def handle_sse(request: Request):
+        async with sse.connect_sse(request.scope, request.receive, request._send) as (read, write):
             await server.run(read, write, server.create_initialization_options())
 
     return Starlette(routes=[
