@@ -34,8 +34,9 @@ Your project docs              AI assistant (Claude, Cursor, …)
   build graph  ───►   Control UI  ──► Knowledge   Git issues
                        (browser)      graph MCP   & PRs MCP
                            │
-                           ├──► mcp/codegraph/:8001  (code structure)
-                           └──► mcp/oracle/:8003     (DB schema)
+                           ├──► mcp/codegraph/:8001    (code structure)
+                           ├──► mcp/oracle/:8003       (DB schema)
+                           └──► mcp/azure_devops/:8004 (ADO work items)
                                          │
                                     Neo4j graphs
 ```
@@ -53,6 +54,7 @@ Your project docs              AI assistant (Claude, Cursor, …)
 | An Obsidian vault **or** any folder of `.md` files | Files must use YAML frontmatter (`---` blocks) |
 | A GitLab or GitHub account | Only if you want the Git MCP |
 | An Oracle database | Only if you want the Oracle MCP |
+| An Azure DevOps Server (on-prem) instance | Only if you want the Azure DevOps MCP |
 
 You do **not** need a cloud account. Everything runs locally.
 
@@ -92,7 +94,10 @@ NAA/
 │   ├── git/               # Git MCP — GitLab or GitHub (port 8002)
 │   │   └── meta.yml
 │   │
-│   └── oracle/            # Oracle schema MCP (port 8003)
+│   ├── oracle/            # Oracle schema MCP (port 8003)
+│   │   └── meta.yml
+│   │
+│   └── azure_devops/      # Azure DevOps MCP (port 8004)
 │       └── meta.yml
 │
 ├── docker/
@@ -214,6 +219,10 @@ Copy-Item mcp\git\.env.example mcp\git\.env
 # Oracle MCP
 Copy-Item mcp\oracle\.env.example mcp\oracle\.env
 # Edit mcp\oracle\.env: set ORACLE_HOST, ORACLE_USER, ORACLE_PASSWORD, etc.
+
+# Azure DevOps MCP
+Copy-Item mcp\azure_devops\.env.example mcp\azure_devops\.env
+# Edit mcp\azure_devops\.env: set ADO_BASE_URL, ADO_PROJECT, ADO_USERNAME, ADO_PASSWORD
 ```
 
 ---
@@ -376,6 +385,25 @@ Optional: `ORACLE_CLIENT_LIB_DIR` (path to Oracle Instant Client), `ALLOWED_SCHE
 
 ---
 
+### Azure DevOps MCP — port 8004
+
+Exposes work items from an on-premises Azure DevOps Server collection over Basic or NTLM auth.
+
+| Tool | What it does |
+|---|---|
+| `get_work_item` | Full details for a work item — title, type, state, description, acceptance criteria, tags, priority, assignee, dates, relations |
+| `search_work_items` | Run a WIQL `WHERE` clause fragment, return up to `top` matches (default 20, max 50) |
+| `get_work_item_comments` | Discussion thread / history entries for a work item |
+| `get_related_items` | Linked items (parent, child, related, duplicate, etc.) with resolved title and state |
+| `list_work_item_attachments` | List file attachments (name, size, comment) |
+| `read_work_item_attachment` | Download and extract text from a `.docx` or `.xlsx` attachment |
+
+**Required credentials (`mcp/azure_devops/.env`):** `ADO_BASE_URL`, `ADO_PROJECT`, `ADO_USERNAME`, `ADO_PASSWORD`
+
+Optional: `ADO_API_VERSION` (`5.0` for ADO Server 2019, `4.1` for older installs), `NO_PROXY`.
+
+---
+
 ## Adding a New MCP Server
 
 Create a directory under `mcp/` for your server, then add a `meta.yml`:
@@ -425,6 +453,7 @@ Each module has its own `.env` (gitignored). Copy `.env.example` → `.env` in e
 | Code-graph MCP | `mcp/codegraph/.env` | `NEO4J_URI` (bolt:7688), `NEO4J_USER`, `NEO4J_PASSWORD` |
 | Git MCP | `mcp/git/.env` | `GIT_PROVIDER`, tokens — see Git MCP section above |
 | Oracle MCP | `mcp/oracle/.env` | Oracle connection vars — see Oracle MCP section above |
+| Azure DevOps MCP | `mcp/azure_devops/.env` | `ADO_BASE_URL`, `ADO_PROJECT`, `ADO_USERNAME`, `ADO_PASSWORD` — see Azure DevOps MCP section above |
 | Pipeline | `pipeline/.env` | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` |
 
 Secrets (passwords, tokens) go in `.env` only — never in `config/settings.yml` or `mcp_state.json`.
@@ -459,6 +488,7 @@ mcp_servers:
 | Code-graph MCP | 8001 |
 | Git MCP | 8002 |
 | Oracle MCP | 8003 |
+| Azure DevOps MCP | 8004 |
 | Docgraph Neo4j — Bolt | 7687 |
 | Docgraph Neo4j — Browser | 7474 |
 | Codegraph Neo4j — Bolt | 7688 |
