@@ -17,6 +17,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    import psutil as _psutil
+except ImportError:
+    _psutil = None
+
 logger = logging.getLogger(__name__)
 
 _STATE_FILE = Path(__file__).parent.parent / "mcp_state.json"
@@ -24,6 +29,28 @@ _STATE_FILE = Path(__file__).parent.parent / "mcp_state.json"
 from .mcp_registry import discover_servers as _discover_servers  # noqa: E402
 
 SERVERS: dict[str, dict[str, Any]] = _discover_servers()
+
+
+def _kill_by_port(port: int) -> None:
+    """Kill whichever process is listening on *port*, if psutil is available."""
+    if _psutil is None:
+        return
+    try:
+        for conn in _psutil.net_connections(kind="tcp"):
+            if conn.laddr.port == port and conn.pid:
+                try:
+                    p = _psutil.Process(conn.pid)
+                    p.terminate()
+                    p.wait(timeout=5)
+                except (_psutil.NoSuchProcess, _psutil.TimeoutExpired):
+                    try:
+                        p.kill()
+                    except Exception:
+                        pass
+                except Exception as exc:
+                    logger.warning("Could not kill pid %s on port %s: %s", conn.pid, port, exc)
+    except Exception as exc:
+        logger.warning("_kill_by_port(%s) failed: %s", port, exc)
 
 
 def _port_open(host: str, port: int) -> bool:
@@ -139,6 +166,17 @@ class McpManager:
                 except Exception:
                     pass
             self._procs[name]      = None
+            self._started_at[name] = None
+
+        # If the port is still open (orphaned or externally-started process),
+        # kill whatever holds it so stop/restart are not no-ops.
+        conf = self.get_config(name)
+        if _port_open(conf["host"], int(conf["port"])):
+            logger.warning(
+                "Port %s still open after stop attempt for %s — killing by port",
+                conf["port"], name,
+            )
+            _kill_by_port(int(conf["port"]))
             self._started_at[name] = None
 
         desired = self._desired()
