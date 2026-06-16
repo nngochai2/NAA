@@ -1,9 +1,9 @@
 import os
 from neo4j import GraphDatabase
 
-_URI = os.getenv("NEO4J_URI", "bolt://localhost:7688")
+_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 _USER = os.getenv("NEO4J_USER", "neo4j")
-_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 
 _driver = None
 
@@ -11,7 +11,8 @@ _driver = None
 def get_driver():
     global _driver
     if _driver is None:
-        _driver = GraphDatabase.driver(_URI, auth=(_USER, _PASSWORD))
+        auth = (_USER, _PASSWORD) if _PASSWORD else None
+        _driver = GraphDatabase.driver(_URI, auth=auth)
     return _driver
 
 
