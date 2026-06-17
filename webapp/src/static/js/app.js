@@ -721,15 +721,18 @@ function vaultApp() {
       this.mcp.error = '';
       try {
         const r = await fetch(`/api/mcp/${name}/${action}`, { method: 'POST' });
+        const d = await r.json().catch(() => ({}));
         if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
           this.mcp.error = d.detail || `${action} failed`;
+        } else {
+          const idx = this.mcp.servers.findIndex(s => s.name === name);
+          if (idx !== -1) this.mcp.servers[idx] = d;
+          setTimeout(() => this.loadMcpServers(), 1000);
         }
       } catch (_) {
         this.mcp.error = 'Could not reach server.';
       } finally {
         this.mcp.busy = '';
-        await this.loadMcpServers();
       }
     },
 
@@ -737,12 +740,16 @@ function vaultApp() {
       this.mcp.busy  = 'all';
       this.mcp.error = '';
       try {
-        await fetch('/api/mcp/start-all', { method: 'POST' });
+        const r = await fetch('/api/mcp/start-all', { method: 'POST' });
+        if (r.ok) {
+          const d = await r.json().catch(() => ({}));
+          if (d.servers) this.mcp.servers = d.servers;
+          setTimeout(() => this.loadMcpServers(), 1000);
+        }
       } catch (_) {
         this.mcp.error = 'Could not reach server.';
       } finally {
         this.mcp.busy = '';
-        await this.loadMcpServers();
       }
     },
 
@@ -750,12 +757,16 @@ function vaultApp() {
       this.mcp.busy  = 'all';
       this.mcp.error = '';
       try {
-        await fetch('/api/mcp/stop-all', { method: 'POST' });
+        const r = await fetch('/api/mcp/stop-all', { method: 'POST' });
+        if (r.ok) {
+          const d = await r.json().catch(() => ({}));
+          if (d.servers) this.mcp.servers = d.servers;
+          setTimeout(() => this.loadMcpServers(), 1000);
+        }
       } catch (_) {
         this.mcp.error = 'Could not reach server.';
       } finally {
         this.mcp.busy = '';
-        await this.loadMcpServers();
       }
     },
 
@@ -771,15 +782,18 @@ function vaultApp() {
             port: parseInt(this.mcp.configEdit.port, 10),
           }),
         });
+        const d = await r.json().catch(() => ({}));
         if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
           this.mcp.error = d.detail || 'Config save failed.';
+        } else {
+          const idx = this.mcp.servers.findIndex(s => s.name === name);
+          if (idx !== -1) this.mcp.servers[idx] = d;
+          setTimeout(() => this.loadMcpServers(), 1000);
         }
       } catch (_) {
         this.mcp.error = 'Could not reach server.';
       } finally {
         this.mcp.busy = '';
-        await this.loadMcpServers();
       }
     },
 
