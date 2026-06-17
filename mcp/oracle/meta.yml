@@ -3,7 +3,7 @@ label: "Oracle MCP"
 cmd: ["python", "oracle_11g/src/oracle_mcp_server.py"]
 host: "0.0.0.0"
 port: 8003
-env_file: .env
+env_file: oracle_11g/.env
 
 credentials:
   - key: ORACLE_HOST
