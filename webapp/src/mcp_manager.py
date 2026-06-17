@@ -154,13 +154,19 @@ class McpManager:
         env["MCP_HOST"] = conf["host"]
         env["MCP_PORT"] = conf["port"]
 
+        log_path = Path(cfg["cwd"]) / f"{name}.log"
+        try:
+            log_fh = open(log_path, "a", encoding="utf-8")
+        except OSError:
+            log_fh = subprocess.DEVNULL
+
         try:
             proc = subprocess.Popen(
                 cfg["cmd"],
                 cwd=str(cfg["cwd"]),
                 env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=log_fh,
+                stderr=log_fh,
             )
         except Exception as exc:
             logger.error("Failed to start %s: %s", name, exc)
