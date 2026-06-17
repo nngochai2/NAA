@@ -68,6 +68,18 @@ class McpManager:
     def __init__(self) -> None:
         self._procs:      dict[str, subprocess.Popen | None] = {k: None for k in SERVERS}
         self._started_at: dict[str, datetime | None]         = {k: None for k in SERVERS}
+        self._stopped:    set[str]                           = set()
+        self._live_pids:  dict[str, int | None]              = {k: None for k in SERVERS}
+        if _psutil is not None:
+            for name, pid in self._load_state().get("pids", {}).items():
+                if name not in SERVERS:
+                    continue
+                try:
+                    p = _psutil.Process(pid)
+                    if p.is_running() and p.status() != _psutil.STATUS_ZOMBIE:
+                        self._live_pids[name] = pid
+                except _psutil.NoSuchProcess:
+                    pass
 
     # ── State file ────────────────────────────────────────────────────────────
 
@@ -111,10 +123,19 @@ class McpManager:
     # ── Liveness ──────────────────────────────────────────────────────────────
 
     def _is_running(self, name: str) -> bool:
+        if name in self._stopped:
+            return False
         proc = self._procs.get(name)
-        if proc is not None and proc.poll() is None:
-            return True
-        cfg = SERVERS[name]
+        if proc is not None:
+            return proc.poll() is None
+        pid = self._live_pids.get(name)
+        if pid is not None and _psutil is not None:
+            try:
+                p = _psutil.Process(pid)
+                if p.is_running() and p.status() != _psutil.STATUS_ZOMBIE:
+                    return True
+            except _psutil.NoSuchProcess:
+                self._live_pids[name] = None
         conf = self.get_config(name)
         return _port_open(conf["host"], int(conf["port"]))
 
@@ -123,6 +144,7 @@ class McpManager:
     def start(self, name: str) -> None:
         if name not in SERVERS:
             raise KeyError(f"Unknown server: {name!r}")
+        self._stopped.discard(name)
         if self._is_running(name):
             return
 
@@ -146,11 +168,15 @@ class McpManager:
 
         self._procs[name]      = proc
         self._started_at[name] = datetime.now(timezone.utc)
+        self._live_pids[name]  = proc.pid
         logger.info("Started %s pid=%s", name, proc.pid)
 
-        desired = self._desired()
+        state = self._load_state()
+        desired = set(state.get("desired", []))
         desired.add(name)
-        self._set_desired(desired)
+        state["desired"] = sorted(desired)
+        state.setdefault("pids", {})[name] = proc.pid
+        self._save_state(state)
 
     def stop(self, name: str) -> None:
         if name not in SERVERS:
@@ -168,6 +194,8 @@ class McpManager:
             self._procs[name]      = None
             self._started_at[name] = None
 
+        self._stopped.add(name)
+
         # If the port is still open (orphaned or externally-started process),
         # kill whatever holds it so stop/restart are not no-ops.
         conf = self.get_config(name)
@@ -179,9 +207,13 @@ class McpManager:
             _kill_by_port(int(conf["port"]))
             self._started_at[name] = None
 
-        desired = self._desired()
+        self._live_pids[name] = None
+        state = self._load_state()
+        desired = set(state.get("desired", []))
         desired.discard(name)
-        self._set_desired(desired)
+        state["desired"] = sorted(desired)
+        state.setdefault("pids", {}).pop(name, None)
+        self._save_state(state)
         logger.info("Stopped %s", name)
 
     def restart(self, name: str) -> None:
@@ -232,7 +264,7 @@ class McpManager:
             "port":    int(conf["port"]),
             "sse_url": sse_url,
             "running": running,
-            "pid":     proc.pid if proc and proc.poll() is None else None,
+            "pid":     proc.pid if proc and proc.poll() is None else self._live_pids.get(name),
             "uptime":  uptime,
         }
 
