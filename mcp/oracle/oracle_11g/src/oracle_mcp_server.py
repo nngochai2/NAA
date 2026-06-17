@@ -39,7 +39,7 @@ from mcp.server.fastmcp import FastMCP
 # Bootstrap
 # ─────────────────────────────────────────────────────────────────────────────
  
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
  
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
