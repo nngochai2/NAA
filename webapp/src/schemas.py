@@ -211,6 +211,9 @@ class DocParseRequest(BaseModel):
     source_label:   str        = ""
     dry_run:        bool       = True
     parent_node_id: str | None = None
+    flow_name:      str        = ""
+    uc_id:          str        = ""
+    doc_type:       str        = ""
 
 class ParsedItemDetail(BaseModel):
     req_id:               str

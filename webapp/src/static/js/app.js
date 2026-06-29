@@ -79,6 +79,9 @@ function vaultApp() {
       customRulePath: '',
       docxPath:       '',
       sourceLabel:    '',
+      flowName:       '',
+      ucId:           '',
+      docType:        '',
       status:         'idle',  // idle | parsing | done | error
       items:          [],
       contextLength:  0,
@@ -586,6 +589,9 @@ function vaultApp() {
             docx_path:    this.docs.docxPath.trim(),
             rule_file:    rulePath,
             source_label: this.docs.sourceLabel.trim(),
+            flow_name:    this.docs.flowName.trim(),
+            uc_id:        this.docs.ucId.trim(),
+            doc_type:     this.docs.docType.trim(),
             dry_run:      dryRun,
           }),
         });

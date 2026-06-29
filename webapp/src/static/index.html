@@ -457,8 +457,19 @@
         <input x-model="docs.docxPath" class="mono-input" style="width:100%;margin-bottom:8px"
                placeholder="C:\path\to\spec.docx"
                @keydown.enter="dryParseDoc()" />
-        <input x-model="docs.sourceLabel" class="mono-input" style="width:100%;font-size:10px"
-               placeholder="source label — e.g. UC36-SDD (optional)" />
+        <input x-model="docs.sourceLabel" class="mono-input" style="width:100%;font-size:10px;margin-bottom:8px"
+               placeholder="source label — e.g. UC36 (optional)" />
+        <div style="display:flex;gap:6px">
+          <input x-model="docs.flowName" class="mono-input" style="flex:1;font-size:10px"
+                 placeholder="Flow — e.g. eInvoice" />
+          <input x-model="docs.ucId" class="mono-input" style="flex:1;font-size:10px"
+                 placeholder="UC ID — e.g. UC36" />
+          <input x-model="docs.docType" class="mono-input" style="flex:1;font-size:10px"
+                 placeholder="Type — FDD or SDD" />
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:4px">
+          Flow + UC ID + Type required to build the graph hierarchy
+        </div>
       </div>
 
       <!-- Parse controls -->

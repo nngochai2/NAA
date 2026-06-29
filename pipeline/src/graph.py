@@ -579,6 +579,60 @@ class GraphBuilder:
                 )
         console.print(f"[green]Created {len(rows)} CALLS edge(s) from FieldMapping → PackageFunction.[/]")
 
+    # ── Spec-doc hierarchy ────────────────────────────────────────────────────
+
+    def upsert_document_hierarchy(
+        self,
+        flow_name:   str,
+        uc_id:       str,
+        doc_type:    str,
+        source_file: str,
+        context:     str = "",
+    ) -> str:
+        """
+        MERGE the Flow → UseCase → Document chain and return the Document node_id.
+
+        Pass the returned id as ``parent_node_id`` to ``upsert_requirements``
+        so that BR nodes are linked via Document-[:DEFINES]->BR.
+
+        Relationships created:
+            (:Flow)-[:HAS_USE_CASE]->(:UseCase)-[:HAS_DOCUMENT]->(:Document)
+        """
+        import hashlib
+
+        flow_id = hashlib.sha1(f"FLOW::{flow_name}".encode()).hexdigest()[:16]
+        uc_node_id  = hashlib.sha1(f"UC::{flow_name}::{uc_id}".encode()).hexdigest()[:16]
+        doc_id  = hashlib.sha1(f"DOC::{flow_name}::{uc_id}::{doc_type}".encode()).hexdigest()[:16]
+
+        with self.driver.session() as s:
+            s.run(
+                """
+                MERGE (f:Flow {id: $flow_id})
+                  SET f.name = $flow_name
+                MERGE (uc:UseCase {id: $uc_node_id})
+                  SET uc.uc_id      = $uc_id,
+                      uc.flow_name  = $flow_name
+                MERGE (f)-[:HAS_USE_CASE]->(uc)
+                MERGE (d:Document {id: $doc_id})
+                  SET d.uc_id       = $uc_id,
+                      d.doc_type    = $doc_type,
+                      d.flow_name   = $flow_name,
+                      d.source_file = $source_file,
+                      d.context     = $context
+                MERGE (uc)-[:HAS_DOCUMENT]->(d)
+                """,
+                flow_id=flow_id,
+                flow_name=flow_name,
+                uc_node_id=uc_node_id,
+                uc_id=uc_id,
+                doc_id=doc_id,
+                doc_type=doc_type,
+                source_file=source_file,
+                context=context,
+            )
+
+        return doc_id
+
     # ── Generic requirement upsert (rule-file driven) ─────────────────────────
 
     def upsert_requirements(
