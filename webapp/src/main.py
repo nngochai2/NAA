@@ -616,7 +616,16 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
             from graph import GraphBuilder
             db = GraphBuilder(neo4j_uri, neo4j_user, neo4j_password)
             try:
-                db.upsert_requirements(items, parent_node_id=req.parent_node_id)
+                parent_id = req.parent_node_id
+                if req.flow_name and req.uc_id and req.doc_type:
+                    parent_id = db.upsert_document_hierarchy(
+                        flow_name=req.flow_name,
+                        uc_id=req.uc_id,
+                        doc_type=req.doc_type,
+                        source_file=Path(req.docx_path).name,
+                        context=context,
+                    )
+                db.upsert_requirements(items, parent_node_id=parent_id)
                 ingested = True
             finally:
                 db.close()
