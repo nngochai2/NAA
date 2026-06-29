@@ -585,7 +585,7 @@ async def list_doc_rules() -> dict:
 
 @protected.post("/api/docs/parse", response_model=DocParseResponse)
 async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_session)) -> DocParseResponse:
-    from docx_generic_parser import DocxRuleParser
+    from .docx_generic_parser import DocxRuleParser
 
     rule_path = Path(req.rule_file)
     if not rule_path.is_absolute():
@@ -609,6 +609,10 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
         neo4j_user     = session.neo4j_user     or os.getenv("NEO4J_USER", "neo4j")
         neo4j_password = session.neo4j_password or os.getenv("NEO4J_PASSWORD", "")
         try:
+            import sys as _sys, pathlib as _pl
+            _pipeline_src = str(_pl.Path(__file__).parent.parent.parent / "pipeline" / "src")
+            if _pipeline_src not in _sys.path:
+                _sys.path.insert(0, _pipeline_src)
             from graph import GraphBuilder
             db = GraphBuilder(neo4j_uri, neo4j_user, neo4j_password)
             try:
