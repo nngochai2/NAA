@@ -1,3 +1,9 @@
+CLASS_SEARCH = """
+MATCH (t:Type) WHERE t.name CONTAINS $className
+RETURN t.name AS name, t.fqn AS fqn
+ORDER BY t.name
+"""
+
 CLASS_DEPENDENCIES = """
 MATCH (t:Type {name: $className})<-[:DEPENDS_ON]-(dependent:Type)
 RETURN dependent.fqn AS fqn, dependent.name AS name

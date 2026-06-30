@@ -1,10 +1,15 @@
 from graph_client import run_query
 from cypher import queries
+from tools.resolver import resolve_class_name
 
 _LAYER_LABELS = {"Delegator", "BusinessController", "Facade", "FacadeBean", "Finder", "Searcher"}
 
 
 def get_class_layer_path(class_name: str) -> str:
+    class_name, message = resolve_class_name(class_name)
+    if class_name is None:
+        return message
+
     rows = run_query(queries.CLASS_LAYER_PATH, {"className": class_name})
 
     if not rows:

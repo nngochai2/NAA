@@ -1,8 +1,13 @@
 from graph_client import run_query
 from cypher import queries
+from tools.resolver import resolve_class_name
 
 
 def get_class_overview(class_name: str) -> str:
+    class_name, message = resolve_class_name(class_name)
+    if class_name is None:
+        return message
+
     type_rows = run_query(queries.CLASS_OVERVIEW_TYPE, {"className": class_name})
 
     if not type_rows:

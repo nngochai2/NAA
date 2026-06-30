@@ -1,8 +1,13 @@
 from graph_client import run_query
 from cypher import queries
+from tools.resolver import resolve_class_name
 
 
 def get_interface_implementations(interface_name: str) -> str:
+    interface_name, message = resolve_class_name(interface_name)
+    if interface_name is None:
+        return message
+
     rows = run_query(queries.INTERFACE_IMPLEMENTATIONS, {"interfaceName": interface_name})
 
     if not rows:
