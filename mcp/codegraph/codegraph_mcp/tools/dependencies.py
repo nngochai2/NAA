@@ -1,8 +1,13 @@
 from graph_client import run_query
 from cypher import queries
+from tools.resolver import resolve_class_name
 
 
 def get_class_dependencies(class_name: str) -> str:
+    class_name, message = resolve_class_name(class_name)
+    if class_name is None:
+        return message
+
     dependents = run_query(queries.CLASS_DEPENDENCIES, {"className": class_name})
     invoke_rows = run_query(queries.CLASS_DEPENDENCY_INVOKE_COUNT, {"className": class_name})
 
@@ -17,6 +22,10 @@ def get_class_dependencies(class_name: str) -> str:
 
 
 def get_transitive_impact(class_name: str, max_hops: int = 3) -> str:
+    class_name, message = resolve_class_name(class_name)
+    if class_name is None:
+        return message
+
     capped_hops = min(max_hops, 5)
     # Neo4j does not accept a parameter for the hop count in variable-length patterns,
     # so we build one of five fixed queries selected by hop count.

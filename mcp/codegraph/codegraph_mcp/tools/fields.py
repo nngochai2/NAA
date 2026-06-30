@@ -1,8 +1,13 @@
 from graph_client import run_query
 from cypher import queries
+from tools.resolver import resolve_class_name
 
 
 def get_field_impact(field_name: str, class_name: str) -> str:
+    class_name, message = resolve_class_name(class_name)
+    if class_name is None:
+        return message
+
     rows = run_query(queries.FIELD_IMPACT, {"fieldName": field_name, "className": class_name})
 
     if not rows:
