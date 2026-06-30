@@ -283,69 +283,6 @@ class Neo4jClient:
                 )
             s.run(backlink_cypher, src=props["title"])
  
-    # ── eInvoice SQL / requirements queries ──────────────────────────────────
- 
-    def get_sql_view(self, view_name: str) -> dict | None:
-        """Fetch a SqlView node by qualified_name or view_name (case-insensitive)."""
-        cypher = """
-            MATCH (v:SqlView)
-            WHERE toLower(v.qualified_name) CONTAINS toLower($name)
-               OR toLower(v.view_name)      CONTAINS toLower($name)
-            RETURN v.qualified_name AS qualified_name,
-                   v.view_name      AS view_name,
-                   v.schema         AS schema,
-                   v.hash           AS hash,
-                   v.tag            AS tag,
-                   v.body           AS body
-            LIMIT 1
-        """
-        with self._driver.session() as s:
-            r = s.run(cypher, name=view_name).single()
-            return dict(r) if r else None
- 
-    def get_sql_segments(self, qualified_name: str) -> list[dict]:
-        """Return all SqlSegment nodes for a view."""
-        cypher = """
-            MATCH (seg:SqlSegment)-[:PART_OF]->(v:SqlView {qualified_name: $qname})
-            RETURN seg.segment_name   AS segment_name,
-                   seg.dispatch_codes AS dispatch_codes,
-                   seg.tag            AS tag
-            ORDER BY seg.segment_name
-        """
-        with self._driver.session() as s:
-            return [dict(r) for r in s.run(cypher, qname=qualified_name)]
- 
-    def get_field_mappings(self, qualified_name: str, segment: str | None = None) -> list[dict]:
-        """Return FieldMapping nodes for a view, optionally filtered by segment."""
-        if segment:
-            cypher = """
-                MATCH (f:FieldMapping)-[:FIELD_OF]->(seg:SqlSegment {segment_name: $seg})
-                      -[:PART_OF]->(v:SqlView {qualified_name: $qname})
-                RETURN f.alias          AS alias,
-                       f.expression     AS expression,
-                       f.br_refs        AS br_refs,
-                       f.tfs_refs       AS tfs_refs,
-                       f.inline_comment AS inline_comment,
-                       seg.segment_name AS segment
-                ORDER BY f.alias
-            """
-            with self._driver.session() as s:
-                return [dict(r) for r in s.run(cypher, qname=qualified_name, seg=segment)]
-        else:
-            cypher = """
-                MATCH (f:FieldMapping)-[:FIELD_OF]->(seg:SqlSegment)
-                      -[:PART_OF]->(v:SqlView {qualified_name: $qname})
-                RETURN f.alias          AS alias,
-                       f.expression     AS expression,
-                       f.br_refs        AS br_refs,
-                       f.tfs_refs       AS tfs_refs,
-                       f.inline_comment AS inline_comment,
-                       seg.segment_name AS segment
-                ORDER BY seg.segment_name, f.alias
-            """
-            with self._driver.session() as s:
-                return [dict(r) for r in s.run(cypher, qname=qualified_name)]
- 
     def get_requirements(self, flow_name: str | None = None) -> list[dict]:
         """Return all BR nodes, optionally filtered by flow_name.
         Returns summary fields only; use get_requirement_detail() for full body.
@@ -353,15 +290,14 @@ class Neo4jClient:
         if flow_name:
             cypher = """
                 MATCH (b:BR {flow_name: $flow_name})
-                RETURN b.br_id           AS br_id,
-                       b.uc_id           AS uc_id,
-                       b.doc_type        AS doc_type,
-                       b.flow_name       AS flow_name,
-                       b.title           AS title,
-                       b.affected_views  AS affected_views,
-                       b.candidate_categories AS candidate_categories,
-                       b.confirmed_categories AS confirmed_categories,
-                       b.source_file     AS source_file
+                RETURN b.br_id                 AS br_id,
+                       b.uc_id                 AS uc_id,
+                       b.doc_type              AS doc_type,
+                       b.flow_name             AS flow_name,
+                       b.title                 AS title,
+                       b.candidate_categories  AS candidate_categories,
+                       b.confirmed_categories  AS confirmed_categories,
+                       b.source_file           AS source_file
                 ORDER BY b.uc_id, b.br_id, b.doc_type
             """
             with self._driver.session() as s:
@@ -369,20 +305,19 @@ class Neo4jClient:
         else:
             cypher = """
                 MATCH (b:BR)
-                RETURN b.br_id           AS br_id,
-                       b.uc_id           AS uc_id,
-                       b.doc_type        AS doc_type,
-                       b.flow_name       AS flow_name,
-                       b.title           AS title,
-                       b.affected_views  AS affected_views,
-                       b.candidate_categories AS candidate_categories,
-                       b.confirmed_categories AS confirmed_categories,
-                       b.source_file     AS source_file
+                RETURN b.br_id                 AS br_id,
+                       b.uc_id                 AS uc_id,
+                       b.doc_type              AS doc_type,
+                       b.flow_name             AS flow_name,
+                       b.title                 AS title,
+                       b.candidate_categories  AS candidate_categories,
+                       b.confirmed_categories  AS confirmed_categories,
+                       b.source_file           AS source_file
                 ORDER BY b.flow_name, b.uc_id, b.br_id, b.doc_type
             """
             with self._driver.session() as s:
                 return [dict(r) for r in s.run(cypher)]
- 
+
     def get_requirement_detail(
         self,
         br_id: str,
@@ -394,18 +329,17 @@ class Neo4jClient:
         cypher = """
             MATCH (b:BR {br_id: $br_id, uc_id: $uc_id, doc_type: $doc_type, flow_name: $flow_name})
             OPTIONAL MATCH (d:Document)-[:DEFINES]->(b)
-            RETURN b.br_id               AS br_id,
-                   b.uc_id               AS uc_id,
-                   b.doc_type            AS doc_type,
-                   b.flow_name           AS flow_name,
-                   b.title               AS title,
-                   b.body                AS body,
-                   b.candidate_categories AS candidate_categories,
-                   b.confirmed_categories AS confirmed_categories,
-                   b.affected_fields     AS affected_fields,
-                   b.affected_views      AS affected_views,
-                   b.source_file         AS source_file,
-                   b.project_id          AS project_id,
+            RETURN b.br_id                 AS br_id,
+                   b.uc_id                 AS uc_id,
+                   b.doc_type              AS doc_type,
+                   b.flow_name             AS flow_name,
+                   b.title                 AS title,
+                   b.body                  AS body,
+                   b.candidate_categories  AS candidate_categories,
+                   b.confirmed_categories  AS confirmed_categories,
+                   b.affected_fields       AS affected_fields,
+                   b.source_file           AS source_file,
+                   b.project_id            AS project_id,
                    coalesce(d.context, '') AS document_context
         """
         with self._driver.session() as s:
@@ -414,7 +348,7 @@ class Neo4jClient:
                 br_id=br_id, uc_id=uc_id, doc_type=doc_type, flow_name=flow_name,
             ).single()
             return dict(row) if row else None
- 
+
     def get_use_cases(self, flow_name: str) -> list[dict]:
         """Return all UseCases under a Flow."""
         cypher = """
@@ -426,7 +360,7 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, flow_name=flow_name)]
- 
+
     def get_documents(self, uc_id: str, flow_name: str) -> list[dict]:
         """Return all Documents under a UseCase."""
         cypher = """
@@ -439,80 +373,3 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, uc_id=uc_id, flow_name=flow_name)]
- 
-    def get_unlinked_fields(self, qualified_name: str) -> list[dict]:
-        """
-        Return FieldMappings for a view that have no IMPLEMENTED_BY relationship.
-        These are candidates for LLM-assisted linking.
-        """
-        cypher = """
-            MATCH (f:FieldMapping)-[:FIELD_OF]->(seg:SqlSegment)
-                  -[:PART_OF]->(v:SqlView {qualified_name: $qname})
-            WHERE NOT (f)<-[:IMPLEMENTED_BY]-(:BR)
-              AND NOT (f)-[:REFERENCED_BY]-(:BR)
-              AND NOT ()<-[:REFERENCED_BY]-(f)
-            RETURN f.alias          AS alias,
-                   f.expression     AS expression,
-                   f.br_refs        AS br_refs,
-                   f.inline_comment AS inline_comment,
-                   seg.segment_name AS segment
-            ORDER BY seg.segment_name, f.alias
-        """
-        with self._driver.session() as s:
-            return [dict(r) for r in s.run(cypher, qname=qualified_name)]
- 
-    def write_implemented_by(self, links: list[dict]) -> int:
-        """
-        Persist IMPLEMENTED_BY edges from Requirement → FieldMapping.
-        Each entry: {"br_id": "BR04", "field_alias": "...", "view_name": "...", "segment": "..."}
-        Returns the number of edges created.
-        """
-        import hashlib
- 
-        rows = []
-        for lnk in links:
-            field_id = hashlib.sha1(
-                f"{lnk['view_name']}::{lnk['segment']}::{lnk['field_alias']}".encode()
-            ).hexdigest()[:16]
-            rows.append({
-                "br_id":    lnk["br_id"],
-                "field_id": field_id,
-                "reason":   lnk.get("reason", ""),
-            })
- 
-        if not rows:
-            return 0
- 
-        cypher = """
-            UNWIND $rows AS row
-            MATCH (b:BR {br_id: row.br_id})
-            MATCH (f:FieldMapping {id: row.field_id})
-            MERGE (b)-[e:IMPLEMENTED_BY]->(f)
-            SET e.reason = row.reason
-        """
-        with self._driver.session() as s:
-            return [dict(r) for r in s.run(cypher, rows=rows)]
-        return len(rows)
- 
-    def get_package_functions(self, package_name: str) -> list[dict]:
-        """
-        Return all PackageFunction nodes for a given OraclePackage.
-        Matches by qualified_name or package_name (case-insensitive).
-        """
-        cypher = """
-            MATCH (f:PackageFunction)-[:PART_OF]->(p:OraclePackage)
-            WHERE toLower(p.qualified_name) CONTAINS toLower($name)
-               OR toLower(p.package_name)   CONTAINS toLower($name)
-            RETURN f.function_name AS function_name,
-                   f.parameters    AS parameters,
-                   f.return_type   AS return_type,
-                   f.br_refs       AS br_refs,
-                   f.tfs_refs      AS tfs_refs,
-                   f.body          AS body,
-                   p.qualified_name AS package_name
-            ORDER BY f.function_name
-        """
-        with self._driver.session() as s:
-            return [dict(r) for r in s.run(cypher, name=package_name)]
- 
- 
