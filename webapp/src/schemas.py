@@ -224,14 +224,15 @@ class ParsedItemDetail(BaseModel):
     named_extractions:    dict[str, list[str]]
 
 class DocParseResponse(BaseModel):
-    status:         str
-    rule_name:      str
-    node_label:     str
-    item_count:     int
-    context_length: int
-    dry_run:        bool
-    ingested:       bool
-    items:          list[ParsedItemDetail]
+    status:           str
+    rule_name:        str
+    node_label:       str
+    item_count:       int
+    context_length:   int
+    dry_run:          bool
+    ingested:         bool
+    hierarchy_built:  bool = False   # True when Flow→UC→Doc→BR chain was created
+    items:            list[ParsedItemDetail]
 
 
 # ── Error ─────────────────────────────────────────────────────────────────────
