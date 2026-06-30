@@ -102,6 +102,7 @@ function vaultApp() {
         else { this.mcpStopPolling(); }
         if (v === 'settings') this.loadWebappCreds();
       });
+      this.$watch('docs.docxPath', v => this._inferDocsMetadata(v));
       try {
         const r = await fetch('/api/vault/current');
         if (r.status === 401) { window.location = '/login'; return; }
@@ -565,6 +566,42 @@ function vaultApp() {
           }
         }
       } catch (_) {}
+    },
+
+    _inferDocsMetadata(path) {
+      if (!path) {
+        this.docs.flowName = '';
+        this.docs.ucId     = '';
+        this.docs.docType  = '';
+        return;
+      }
+      // Extract filename without extension
+      const fname = path.replace(/\\/g, '/').split('/').pop().replace(/\.docx$/i, '');
+      // Split on " - " or " – " delimiters
+      const parts = fname.split(/\s*[-–]\s*/);
+      if (parts.length < 2) return;
+
+      let flow = '', ucId = '', docType = '';
+
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i].trim();
+        if (/^UC\d+$/i.test(p)) {
+          ucId = p.toUpperCase();
+          if (!flow) flow = (parts[i - 1] || '').trim();
+        }
+        if (/^(SDD|FDD|CRF)$/i.test(p)) {
+          docType = p.toUpperCase();
+          if (!flow) flow = (parts[i - 1] || '').trim();
+        }
+      }
+
+      // Skip part[0] as the flow name if it looks like a project ID (e.g. PRJ00445)
+      if (flow && /^PRJ\d+$/i.test(flow)) flow = '';
+
+      // Only fill fields that the user has not already typed something into
+      if (flow    && !this.docs.flowName) this.docs.flowName = flow;
+      if (ucId    && !this.docs.ucId)     this.docs.ucId     = ucId;
+      if (docType && !this.docs.docType)  this.docs.docType  = docType;
     },
 
     async dryParseDoc() { await this._parseDoc(true); },
