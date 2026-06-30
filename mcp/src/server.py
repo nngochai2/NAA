@@ -114,10 +114,13 @@ mcp = FastMCP(
         "Use search_notes() to find notes by keyword, get_note() for full details, "
         "get_related_notes() to explore relationships, and get_backlinks() to see what "
         "references a given note. Use get_graph_stats() for an overview. "
-        "IMPORTANT: When asked about notes related to a specific topic or tag (e.g. tasks for eInvoice, "
-        "architecture notes for MuleSoft), always use get_tagged_notes(tag, note_type) first — "
+        "IMPORTANT: When asked about notes related to a specific topic or tag, "
+        "always use get_tagged_notes(tag, note_type) first — "
         "it returns all matching notes in one call. Only fall back to get_note() when you need "
-        "the full body content of a specific note."
+        "the full body content of a specific note. "
+        "For specification requirements: use get_use_cases() to list UseCases under a flow, "
+        "get_documents() to see FDD/SDD under a UseCase, get_requirements() to list all BRs, "
+        "and get_requirement_detail() for the full body of a single BR."
     ),
     host=HOST,
     port=PORT,
@@ -649,6 +652,150 @@ def commit_approved_notes() -> str:
         lines.append(f"\n⏳ {pending_remaining} note(s) still pending review.")
     return "\n".join(lines)
  
+# =====================================================================================================
+# Specification requirements tools — Flow → UseCase → Document → BR
+# =====================================================================================================
+
+@mcp.tool()
+def get_use_cases(flow_name: str = "") -> str:
+    """
+    List all UseCases under a flow.
+
+    Args:
+        flow_name: The flow to query.
+    """
+    ucs = _get_db().get_use_cases(flow_name.strip())
+    if not ucs:
+        return f"No UseCases found for flow '{flow_name}'."
+    lines = [f"UseCases for flow '{flow_name}' ({len(ucs)}):\n"]
+    for uc in ucs:
+        lines.append(f"  {uc['uc_id']}  (project: {uc.get('project_id', '?')})")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def get_documents(uc_id: str, flow_name: str = "") -> str:
+    """
+    List all Documents (FDD, SDD, UC …) under a UseCase.
+
+    Args:
+        uc_id:     The UseCase ID, e.g. "UC36".
+        flow_name: The flow name.
+    """
+    docs = _get_db().get_documents(uc_id.strip().upper(), flow_name.strip())
+    if not docs:
+        return f"No Documents found for {uc_id} in flow '{flow_name}'."
+    lines = [f"Documents for {uc_id} / flow '{flow_name}':\n"]
+    for d in docs:
+        lines.append(f"  [{d['doc_type']}]  {d.get('source_file', '?')}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def get_requirements(flow_name: str = "") -> str:
+    """
+    List all BRs (business requirements) extracted from specification documents.
+    Shows BR ID, UC, doc_type, title, and categories.
+
+    Args:
+        flow_name: Flow to filter by. Leave empty to return BRs across all flows.
+    """
+    brs = _get_db().get_requirements(flow_name.strip() if flow_name else None)
+    if not brs:
+        return f"No BRs found for flow '{flow_name}'."
+    lines = [f"BRs ({len(brs)}) for flow '{flow_name}':\n"]
+    for b in brs:
+        cats = b.get("confirmed_categories") or b.get("candidate_categories") or "[]"
+        lines.append(f"[{b['br_id']}] {b.get('uc_id','')}/{b.get('doc_type','')}  {b['title'][:75]}")
+        if cats and cats != "[]":
+            lines.append(f"    categories: {cats}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def get_requirement_detail(
+    br_id:     str,
+    uc_id:     str,
+    doc_type:  str,
+    flow_name: str = "",
+) -> str:
+    """
+    Get the full body of a single BR node, including the parent Document context
+    (intro/scope/background), affected fields, categories, and source file.
+
+    Args:
+        br_id:     The BR identifier, e.g. "BR03".
+        uc_id:     The UseCase ID, e.g. "UC36".
+        doc_type:  Document type: "FDD", "SDD", or "UC".
+        flow_name: Flow the BR belongs to.
+    """
+    r = _get_db().get_requirement_detail(
+        br_id.strip().upper(),
+        uc_id.strip().upper(),
+        doc_type.strip().upper(),
+        flow_name.strip(),
+    )
+    if not r:
+        return f"No BR found for {br_id} / {uc_id} / {doc_type} in flow '{flow_name}'."
+    lines = [
+        f"**[{r['br_id']}] {r['title']}**",
+        f"UC: {r.get('uc_id','')}  |  doc_type: {r.get('doc_type','')}  |  "
+        f"flow: {r.get('flow_name','')}  |  source: {r.get('source_file','')}",
+    ]
+    confirmed = r.get("confirmed_categories") or ""
+    candidate = r.get("candidate_categories") or ""
+    if confirmed and confirmed != "[]":
+        lines.append(f"**Categories (confirmed):** {confirmed}")
+    elif candidate and candidate != "[]":
+        lines.append(f"**Categories (candidate):** {candidate}")
+    if r.get("document_context"):
+        lines += ["", "### Document Context (intro / scope / background)", r["document_context"]]
+    if r.get("body"):
+        lines += ["", "### Requirement Body", r["body"]]
+    fields = r.get("affected_fields", "[]")
+    if fields and fields != "[]":
+        lines += ["", f"**Affected fields:** {fields}"]
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def assign_br_category(
+    br_id:      str,
+    uc_id:      str,
+    doc_type:   str,
+    flow_name:  str,
+    categories: str,
+) -> str:
+    """
+    Confirm the implementation category/categories for a BR node.
+    Updates confirmed_categories, overwriting any previous value.
+
+    Args:
+        br_id:      The BR identifier, e.g. "BR04".
+        uc_id:      The UseCase ID, e.g. "UC36".
+        doc_type:   Document type: "FDD", "SDD", or "UC".
+        flow_name:  The flow name.
+        categories: Comma-separated category labels to assign.
+    """
+    cats = [c.strip() for c in categories.split(",") if c.strip()]
+    with _get_db()._driver.session() as s:
+        row = s.run(
+            """
+            MATCH (b:BR {br_id: $br_id, uc_id: $uc_id, doc_type: $doc_type, flow_name: $flow_name})
+            SET b.confirmed_categories = $cats
+            RETURN b.id AS id
+            """,
+            br_id=br_id.strip().upper(),
+            uc_id=uc_id.strip().upper(),
+            doc_type=doc_type.strip().upper(),
+            flow_name=flow_name.strip(),
+            cats=json.dumps(cats),
+        ).single()
+    if not row:
+        return f"No BR found for {br_id} / {uc_id} / {doc_type} in flow '{flow_name}'."
+    return f"✅ Set confirmed_categories = {cats} on {br_id} ({uc_id}/{doc_type}/{flow_name})."
+
+
 # =====================================================================================================
 # Entry point
 # =====================================================================================================
