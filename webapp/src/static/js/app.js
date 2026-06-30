@@ -87,9 +87,10 @@ function vaultApp() {
       contextLength:  0,
       ruleName:       '',
       nodeLabel:      '',
-      ingested:       false,
-      error:          '',
-      selectedItem:   null,
+      ingested:        false,
+      hierarchyBuilt:  false,
+      error:           '',
+      selectedItem:    null,
     },
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -575,11 +576,12 @@ function vaultApp() {
         this.docs.docType  = '';
         return;
       }
-      // Extract filename without extension
-      const fname = path.replace(/\\/g, '/').split('/').pop().replace(/\.docx$/i, '');
-      // Split on " - " or " – " delimiters
-      const parts = fname.split(/\s*[-–]\s*/);
-      if (parts.length < 2) return;
+      // Extract filename without extension, normalise separators to " - "
+      const fname = path.replace(/\\/g, '/').split('/').pop().replace(/\.docx$/i, '')
+                        .replace(/[_]+/g, ' ').replace(/\s*[-–]\s*/g, ' - ');
+      // Split on " - " or fall back to whitespace tokens
+      const parts = fname.includes(' - ') ? fname.split(' - ') : fname.split(/\s+/);
+      if (parts.length < 1) return;
 
       let flow = '', ucId = '', docType = '';
 
@@ -587,16 +589,20 @@ function vaultApp() {
         const p = parts[i].trim();
         if (/^UC\d+$/i.test(p)) {
           ucId = p.toUpperCase();
+          // Use the part before the UC token as the flow candidate
           if (!flow) flow = (parts[i - 1] || '').trim();
         }
-        if (/^(SDD|FDD|CRF)$/i.test(p)) {
+        if (/^(SDD|FDD|CRF|UC)$/i.test(p) && p.toUpperCase() !== ucId) {
           docType = p.toUpperCase();
           if (!flow) flow = (parts[i - 1] || '').trim();
         }
       }
 
-      // Skip part[0] as the flow name if it looks like a project ID (e.g. PRJ00445)
-      if (flow && /^PRJ\d+$/i.test(flow)) flow = '';
+      // If a UC was detected but no explicit doc_type found, default to "UC"
+      if (ucId && !docType) docType = 'UC';
+
+      // Drop any part that looks like a bare project ID (e.g. PRJ00445)
+      if (/^PRJ\d+$/i.test(flow)) flow = '';
 
       // Only fill fields that the user has not already typed something into
       if (flow    && !this.docs.flowName) this.docs.flowName = flow;
@@ -605,7 +611,14 @@ function vaultApp() {
     },
 
     async dryParseDoc() { await this._parseDoc(true); },
-    async ingestDoc()   { await this._parseDoc(false); },
+    async ingestDoc() {
+      if (!this.docs.flowName.trim() || !this.docs.ucId.trim() || !this.docs.docType.trim()) {
+        this.docs.status = 'error';
+        this.docs.error  = 'Flow, UC ID, and Type are all required to build the graph hierarchy. Fill them in before ingesting.';
+        return;
+      }
+      await this._parseDoc(false);
+    },
 
     _docsRule() {
       return this.docs.rulePath === '__custom__' ? this.docs.customRulePath : this.docs.rulePath;
@@ -643,8 +656,9 @@ function vaultApp() {
         this.docs.contextLength = d.context_length;
         this.docs.ruleName      = d.rule_name;
         this.docs.nodeLabel     = d.node_label;
-        this.docs.ingested      = d.ingested;
-        this.docs.error         = '';
+        this.docs.ingested        = d.ingested;
+        this.docs.hierarchyBuilt  = d.hierarchy_built ?? false;
+        this.docs.error           = '';
       } catch (_) {
         this.docs.status = 'error';
         this.docs.error  = 'Could not reach server.';

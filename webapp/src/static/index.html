@@ -589,6 +589,13 @@
                       <span x-show="!docs.ingested" style="color:var(--warn)">DRY RUN</span>
                     </div>
                   </div>
+                  <div class="stat-cell" x-show="docs.ingested">
+                    <div class="stat-lbl">HIERARCHY</div>
+                    <div class="stat-val" style="font-size:10px">
+                      <span x-show="docs.hierarchyBuilt"  style="color:var(--accent)">Flow→UC→Doc→BR</span>
+                      <span x-show="!docs.hierarchyBuilt" style="color:var(--error,#f87)">ORPHAN — fill Flow/UC/Type</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

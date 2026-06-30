@@ -604,6 +604,7 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
         raise HTTPException(status_code=422, detail={"error": "parse_error", "message": str(exc)})
 
     ingested = False
+    hierarchy_built = False
     if not req.dry_run and items:
         neo4j_uri      = session.neo4j_uri      or os.getenv("NEO4J_URI", "")
         neo4j_user     = session.neo4j_user     or os.getenv("NEO4J_USER", "neo4j")
@@ -647,6 +648,7 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
                     db.upsert_documents([doc_model])
                     db.upsert_brs(br_models)
                     db.link_same_as_brs(req.flow_name)
+                    hierarchy_built = True
                 else:
                     # No hierarchy metadata — generic upsert without parent link
                     db.upsert_requirements(items, parent_node_id=req.parent_node_id)
@@ -664,6 +666,7 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
         context_length=len(context),
         dry_run=req.dry_run,
         ingested=ingested,
+        hierarchy_built=hierarchy_built,
         items=[
             ParsedItemDetail(
                 req_id=item.req_id, title=item.title, body=item.body,
