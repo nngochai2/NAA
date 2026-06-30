@@ -614,18 +614,42 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
             if _pipeline_src not in _sys.path:
                 _sys.path.insert(0, _pipeline_src)
             from graph import GraphBuilder
+            from models import BR as _BR, Document as _Doc, UseCase as _UC
             db = GraphBuilder(neo4j_uri, neo4j_user, neo4j_password)
             try:
-                parent_id = req.parent_node_id
                 if req.flow_name and req.uc_id and req.doc_type:
-                    parent_id = db.upsert_document_hierarchy(
-                        flow_name=req.flow_name,
+                    # Convert ParsedItems → canonical BR/Document models so node IDs,
+                    # properties, and relationship types match the CLI pipeline exactly.
+                    doc_model = _Doc(
                         uc_id=req.uc_id,
                         doc_type=req.doc_type,
+                        flow_name=req.flow_name,
                         source_file=Path(req.docx_path).name,
                         context=context,
                     )
-                db.upsert_requirements(items, parent_node_id=parent_id)
+                    br_models = [
+                        _BR(
+                            br_id=item.req_id,
+                            uc_id=req.uc_id,
+                            doc_type=req.doc_type,
+                            flow_name=req.flow_name,
+                            title=item.title,
+                            body=item.body,
+                            candidate_categories=item.candidate_categories,
+                            affected_views=item.named_extractions.get("views", []),
+                            affected_fields=item.named_extractions.get("fields", []),
+                            source_file=item.source_file,
+                        )
+                        for item in items
+                    ]
+                    db.upsert_flows({req.flow_name})
+                    db.upsert_use_cases([_UC(uc_id=req.uc_id, project_id="", flow_name=req.flow_name)])
+                    db.upsert_documents([doc_model])
+                    db.upsert_brs(br_models)
+                    db.link_same_as_brs(req.flow_name)
+                else:
+                    # No hierarchy metadata — generic upsert without parent link
+                    db.upsert_requirements(items, parent_node_id=req.parent_node_id)
                 ingested = True
             finally:
                 db.close()

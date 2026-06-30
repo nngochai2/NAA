@@ -72,25 +72,44 @@ class TestDocxRuleParser:
 
 class TestDocumentHierarchy:
 
+    # shared helpers ──────────────────────────────────────────────────────────
+
+    def _ingest(self, graph_db, items, context):
+        """Mirror the endpoint's code path: ParsedItem → BR/Document → graph."""
+        from models import BR as _BR, Document as _Doc, UseCase as _UC
+
+        doc_model = _Doc(
+            uc_id="UC99", doc_type="FDD", flow_name="TestFlow",
+            source_file="test_fixture.docx", context=context,
+        )
+        br_models = [
+            _BR(
+                br_id=item.req_id, uc_id="UC99", doc_type="FDD",
+                flow_name="TestFlow", title=item.title, body=item.body,
+                candidate_categories=item.candidate_categories,
+                affected_views=item.named_extractions.get("views", []),
+                affected_fields=item.named_extractions.get("fields", []),
+                source_file=item.source_file,
+            )
+            for item in items
+        ]
+        graph_db.upsert_flows({"TestFlow"})
+        graph_db.upsert_use_cases([_UC(uc_id="UC99", project_id="", flow_name="TestFlow")])
+        graph_db.upsert_documents([doc_model])
+        graph_db.upsert_brs(br_models)
+        return doc_model.node_id
+
     # ── Cycle 6 — tracer bullet ───────────────────────────────────────────────
 
     def test_document_node_created_with_context(self, graph_db, rule_path, sample_docx):
-        """upsert_document_hierarchy merges a Document node and stores context."""
+        """Document node has context, uc_id, doc_type, source_file set."""
         from src.docx_generic_parser import DocxRuleParser
-        _, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
+        items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
-        doc_id = graph_db.upsert_document_hierarchy(
-            flow_name="TestFlow",
-            uc_id="UC99",
-            doc_type="FDD",
-            source_file="test_fixture.docx",
-            context=context,
-        )
+        doc_id = self._ingest(graph_db, items, context)
 
         with graph_db.driver.session() as s:
-            row = s.run(
-                "MATCH (d:Document {id: $id}) RETURN d", id=doc_id
-            ).single()
+            row = s.run("MATCH (d:Document {id: $id}) RETURN d", id=doc_id).single()
 
         assert row is not None
         d = row["d"]
@@ -102,17 +121,11 @@ class TestDocumentHierarchy:
     # ── Cycle 7 ───────────────────────────────────────────────────────────────
 
     def test_br_nodes_linked_to_document_via_defines(self, graph_db, rule_path, sample_docx):
+        """3 BR nodes are reachable from Document via [:DEFINES]."""
         from src.docx_generic_parser import DocxRuleParser
         items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
-        doc_id = graph_db.upsert_document_hierarchy(
-            flow_name="TestFlow",
-            uc_id="UC99",
-            doc_type="FDD",
-            source_file="test_fixture.docx",
-            context=context,
-        )
-        graph_db.upsert_requirements(items, parent_node_id=doc_id)
+        doc_id = self._ingest(graph_db, items, context)
 
         with graph_db.driver.session() as s:
             row = s.run(
@@ -125,16 +138,11 @@ class TestDocumentHierarchy:
     # ── Cycle 8 ───────────────────────────────────────────────────────────────
 
     def test_usecase_node_linked_to_document(self, graph_db, rule_path, sample_docx):
+        """UseCase→[:HAS_DOCUMENT]→Document edge is created."""
         from src.docx_generic_parser import DocxRuleParser
-        _, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
+        items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
-        doc_id = graph_db.upsert_document_hierarchy(
-            flow_name="TestFlow",
-            uc_id="UC99",
-            doc_type="FDD",
-            source_file="test_fixture.docx",
-            context=context,
-        )
+        doc_id = self._ingest(graph_db, items, context)
 
         with graph_db.driver.session() as s:
             row = s.run(
@@ -151,21 +159,16 @@ class TestDocumentHierarchy:
     # ── Cycle 9 ───────────────────────────────────────────────────────────────
 
     def test_flow_node_linked_to_usecase(self, graph_db, rule_path, sample_docx):
+        """Flow→[:HAS_UC]→UseCase edge is created (matches CLI pipeline schema)."""
         from src.docx_generic_parser import DocxRuleParser
-        _, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
+        items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
-        graph_db.upsert_document_hierarchy(
-            flow_name="TestFlow",
-            uc_id="UC99",
-            doc_type="FDD",
-            source_file="test_fixture.docx",
-            context=context,
-        )
+        self._ingest(graph_db, items, context)
 
         with graph_db.driver.session() as s:
             row = s.run(
                 """
-                MATCH (f:Flow {name: 'TestFlow'})-[:HAS_USE_CASE]->(uc:UseCase {uc_id: 'UC99'})
+                MATCH (f:Flow {name: 'TestFlow'})-[:HAS_UC]->(uc:UseCase {uc_id: 'UC99'})
                 RETURN f
                 """
             ).single()
