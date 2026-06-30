@@ -103,7 +103,6 @@ function vaultApp() {
         else { this.mcpStopPolling(); }
         if (v === 'settings') this.loadWebappCreds();
       });
-      this.$watch('docs.docxPath', v => this._inferDocsMetadata(v));
       try {
         const r = await fetch('/api/vault/current');
         if (r.status === 401) { window.location = '/login'; return; }
