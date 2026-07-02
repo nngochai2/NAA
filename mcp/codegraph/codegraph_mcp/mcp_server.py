@@ -2,6 +2,7 @@ import os
 import logging
 import atexit
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 import graph_client
 
 logging.basicConfig(
@@ -26,7 +27,7 @@ mcp = FastMCP(
 atexit.register(graph_client.close)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_search_types(class_name: str) -> str:
     """Search for types (classes, interfaces) whose name contains the given string.
 
@@ -43,7 +44,7 @@ def tool_search_types(class_name: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_get_class_dependencies(class_name: str) -> str:
     """Return all types that directly depend on a class and the count of inbound method invocations.
 
@@ -55,7 +56,7 @@ def tool_get_class_dependencies(class_name: str) -> str:
     return get_class_dependencies(class_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_get_transitive_impact(class_name: str, max_hops: int = 3) -> str:
     """Return all types reachable within max_hops via DEPENDS_ON from the given class.
 
@@ -67,7 +68,7 @@ def tool_get_transitive_impact(class_name: str, max_hops: int = 3) -> str:
     return get_transitive_impact(class_name, max_hops)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_find_method_callers(method_name: str, class_name: str = "") -> str:
     """Return all methods that invoke any method whose name contains method_name.
 
@@ -80,7 +81,7 @@ def tool_find_method_callers(method_name: str, class_name: str = "") -> str:
     return find_method_callers(method_name, class_name or None)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_get_field_impact(field_name: str, class_name: str) -> str:
     """Return all methods that read or write the named field on the given class.
 
@@ -92,7 +93,7 @@ def tool_get_field_impact(field_name: str, class_name: str) -> str:
     return get_field_impact(field_name, class_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_get_interface_implementations(interface_name: str) -> str:
     """Return all concrete classes that implement the given interface.
 
@@ -104,7 +105,7 @@ def tool_get_interface_implementations(interface_name: str) -> str:
     return get_interface_implementations(interface_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_get_class_layer_path(class_name: str) -> str:
     """Return architectural layer entry points (Delegator, Facade, etc.) that call into this class.
 
@@ -117,7 +118,7 @@ def tool_get_class_layer_path(class_name: str) -> str:
     return get_class_layer_path(class_name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def tool_get_class_overview(class_name: str) -> str:
     """Return a summary of a class: package, methods, fields, interfaces, and superclass.
 

@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from httpx_ntlm import HttpNtlmAuth
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
-from mcp.types import TextContent, Tool
+from mcp.types import TextContent, Tool, ToolAnnotations
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.routing import Mount, Route
@@ -365,6 +365,7 @@ async def list_tools() -> list[Tool]:
                 "Returns title, type, state, description, acceptance criteria, "
                 "tags, priority, assignee, dates, and all relations."
             ),
+            annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -384,6 +385,7 @@ async def list_tools() -> list[Tool]:
                 "\"[System.WorkItemType] = 'Bug' AND [System.IterationPath] UNDER 'Sprint 5'\". "
                 "Returns up to `top` results (default 20)."
             ),
+            annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -406,6 +408,7 @@ async def list_tools() -> list[Tool]:
                 "Fetch the discussion thread (comments) for a work item. "
                 "Useful for recovering the reasoning behind decisions made during a ticket."
             ),
+            annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -423,6 +426,7 @@ async def list_tools() -> list[Tool]:
                 "Fetch all items linked to a work item (parent, child, related, duplicate, etc.). "
                 "Resolves work-item links to include title and state."
             ),
+            annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -441,6 +445,7 @@ async def list_tools() -> list[Tool]:
                 "Returns the filename, size, and optional comment for each attachment. "
                 "Use this before read_work_item_attachment to discover what files are available."
             ),
+            annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -460,6 +465,7 @@ async def list_tools() -> list[Tool]:
                 "Returns the full text of the document (paragraphs and tables for .docx; "
                 "all sheets/cells for .xlsx)."
             ),
+            annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
                 "type": "object",
                 "properties": {
