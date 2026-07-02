@@ -34,6 +34,7 @@ from typing import Any, Generator, Optional
 import oracledb
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
  
 # ─────────────────────────────────────────────────────────────────────────────
 # Bootstrap
@@ -251,7 +252,7 @@ server = FastMCP("oracle-mcp", host=Config.MCP_HOST, port=Config.MCP_PORT)
 # Tool: execute_query
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def execute_query(sql: str, max_rows: int = Config.MAX_ROWS) -> str:
     """
     Execute an ad-hoc read-only SELECT against Oracle.
@@ -282,7 +283,7 @@ async def execute_query(sql: str, max_rows: int = Config.MAX_ROWS) -> str:
 # Tool: describe_object
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def describe_object(object_name: str, schema: Optional[str] = None) -> str:
     """
     Return rich column metadata for a table or view — equivalent to DESC
@@ -357,7 +358,7 @@ async def describe_object(object_name: str, schema: Optional[str] = None) -> str
 # Tool: get_view_definition
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_view_definition(view_name: str, schema: Optional[str] = None) -> str:
     """
     Return the full SQL text of an Oracle view.
@@ -419,7 +420,7 @@ async def get_view_definition(view_name: str, schema: Optional[str] = None) -> s
 # Tool: list_objects
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def list_objects(
     schema:      Optional[str] = None,
     object_type: Optional[str] = None,
@@ -469,7 +470,7 @@ async def list_objects(
 # Tool: get_dependencies
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_dependencies(
     object_name: str,
     schema:      Optional[str] = None,
@@ -532,7 +533,7 @@ async def get_dependencies(
 # Tool: get_package_source
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_package_source(
     object_name: str,
     schema:      Optional[str] = None,
@@ -620,7 +621,7 @@ async def get_package_source(
 # Tool: get_constraints
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_constraints(object_name: str, schema: Optional[str] = None) -> str:
     """
     Return all constraints for a table: primary keys, foreign keys,
@@ -683,7 +684,7 @@ async def get_constraints(object_name: str, schema: Optional[str] = None) -> str
 # Tool: search_objects
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def search_objects(
     keyword:        str,
     schema:         Optional[str] = None,
@@ -756,7 +757,7 @@ async def search_objects(
 # Tool: get_indexes
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_indexes(object_name: str, schema: Optional[str] = None) -> str:
     """
     Return index definitions for a table, including column list, uniqueness,
@@ -809,7 +810,7 @@ async def get_indexes(object_name: str, schema: Optional[str] = None) -> str:
 # Tool: get_invalid_objects
 # ══════════════════════════════════════════════════════════════════════════════
  
-@server.tool()
+@server.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_invalid_objects(schema: Optional[str] = None) -> str:
     """
     Return all INVALID objects in a schema.

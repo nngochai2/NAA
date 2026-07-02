@@ -24,7 +24,8 @@ from pathlib import Path
  
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
- 
+from mcp.types import ToolAnnotations
+
 from neo4j_client import Neo4jClient
  
 load_dotenv()
@@ -146,7 +147,7 @@ def _get_db() -> Neo4jClient:
 # Tools
 # =====================================================================================================
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def search_notes(query: str, limit: int = 10) -> str:
     """
     Search the knowledge graph by keyword. Matches against:
@@ -181,7 +182,7 @@ def search_notes(query: str, limit: int = 10) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_note(title: str) -> str:
     """
     Get full details for a note: type, status, created date, word count,
@@ -217,7 +218,7 @@ def get_note(title: str) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_related_notes(title: str, hops: int = 1) -> str:
     """
     Traverse the graph from a note and return nearby notes.
@@ -239,7 +240,7 @@ def get_related_notes(title: str, hops: int = 1) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_backlinks(title: str) -> str:
     """
     Get all notes that link TO the given note (incoming edges).
@@ -261,7 +262,7 @@ def get_backlinks(title: str) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_tagged_notes(tag: str, note_type: str | None = None, limit: int = 50) -> str:
     """
     Get all notes linked to a specific tag or topic, optionally filtered by type.
@@ -294,7 +295,7 @@ def get_tagged_notes(tag: str, note_type: str | None = None, limit: int = 50) ->
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_notes_by_type(note_type: str, limit: int = 20) -> str:
     """
     List notes of a specific type, ordered by popularity (backlink count).
@@ -320,7 +321,7 @@ def get_notes_by_type(note_type: str, limit: int = 20) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_graph_stats() -> str:
     """
     Return an overview of the knowledge graph:
@@ -343,7 +344,7 @@ def get_graph_stats() -> str:
 # Note authoring tools — "Growing" the knowledge graph
 # =====================================================================================================
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def find_knowledge_gaps(concepts: str) -> str:
     """
     Given a comma-separated list of concepts extracted from a source document,
@@ -379,7 +380,7 @@ def find_knowledge_gaps(concepts: str) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_all_note_titles() -> str:
     """
     Return every note title currently in the graph, one per line.
@@ -392,7 +393,7 @@ def get_all_note_titles() -> str:
     return f"{len(titles)} note titles:\n\n" + "\n".join(titles)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
 def stage_note(
     title: str,
     vault_relative_path: str,
@@ -493,7 +494,7 @@ def stage_note(
     return "\n".join(preview_lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def list_staged_notes(show_content: bool = False) -> str:
     """
     List all staged notes and their current status (pending / approved / rejected).
@@ -524,7 +525,7 @@ def list_staged_notes(show_content: bool = False) -> str:
     return "\n".join(lines)
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
 def approve_staged_note(note_id: str) -> str:
     """
     Approve a staged note so it will be written and indexed on the next commit.
@@ -548,7 +549,7 @@ def approve_staged_note(note_id: str) -> str:
     )
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
 def reject_staged_note(note_id: str, reason: str = "") -> str:
     """
     Reject a staged note. It will be skipped on commit and removed from staging.
@@ -576,7 +577,7 @@ def reject_staged_note(note_id: str, reason: str = "") -> str:
     return f"❌ Rejected: [{note_id}] {note['title']}" + (f"\n   Reason: {reason}" if reason else "")
  
  
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
 def commit_approved_notes() -> str:
     """
     Commit all approved staged notes:
@@ -656,7 +657,7 @@ def commit_approved_notes() -> str:
 # Specification requirements tools — Flow → UseCase → Document → BR
 # =====================================================================================================
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_use_cases(flow_name: str = "") -> str:
     """
     List all UseCases under a flow.
@@ -673,7 +674,7 @@ def get_use_cases(flow_name: str = "") -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_documents(uc_id: str, flow_name: str = "") -> str:
     """
     List all Documents (FDD, SDD, UC …) under a UseCase.
@@ -691,7 +692,7 @@ def get_documents(uc_id: str, flow_name: str = "") -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_requirements(flow_name: str = "") -> str:
     """
     List all BRs (business requirements) extracted from specification documents.
@@ -712,7 +713,7 @@ def get_requirements(flow_name: str = "") -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_requirement_detail(
     br_id:     str,
     uc_id:     str,
@@ -758,7 +759,7 @@ def get_requirement_detail(
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
 def assign_br_category(
     br_id:      str,
     uc_id:      str,
