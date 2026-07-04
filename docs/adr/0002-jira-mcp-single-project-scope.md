@@ -1,0 +1,3 @@
+# One Jira MCP instance is scoped to a single fixed project
+
+Git MCP's tools accept an optional `repo_id` per call, falling back to an env var default, so one Git MCP instance can operate across multiple repos. The Jira MCP instead fixes `JIRA_PROJECT_KEY` at configuration time with no per-call override — a deliberate deviation from Git MCP's pattern. This matches the Kanban board's own scoping (a board is normally tied to one project): one MCP instance represents one project's board. Teams managing multiple project boards run multiple Jira MCP instances on different ports, the same way they would run separate Git MCP instances for unrelated repos.

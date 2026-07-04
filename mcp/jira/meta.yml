@@ -1,0 +1,24 @@
+id: jira
+label: "Jira MCP"
+cmd: ["python", "-m", "jira_mcp"]
+host: "0.0.0.0"
+port: 8005
+env_file: .env
+
+credentials:
+  - key: JIRA_URL
+    label: "Jira Base URL"
+    secret: false
+    placeholder: "https://insight.fsoft.com.vn/jiradc"
+  - key: JIRA_PAT
+    label: "Personal Access Token"
+    secret: true
+    placeholder: "..."
+  - key: JIRA_PROJECT_KEY
+    label: "Project Key"
+    secret: false
+    placeholder: "PROJ"
+  - key: JIRA_SSL_VERIFY
+    label: "SSL Verify"
+    secret: false
+    placeholder: "true"
