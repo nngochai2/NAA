@@ -1,0 +1,3 @@
+# Jira MCP resolves instance config dynamically instead of hardcoding it
+
+The Jira MCP looks up the parent/Epic-Link field, workflow transition IDs, and issue-link-type IDs via Jira's metadata APIs (`createmeta`, `/transitions`, `/issueLinkType`) at call time, rather than hardcoding them as Git MCP does with its provider enums. Jira Data Center allows per-project workflow customization and per-instance renaming of link types, so a hardcoded transition name or `customfield_XXXXX` ID that works for one project can silently break on another. The extra API round-trip per call is traded for correctness across projects.

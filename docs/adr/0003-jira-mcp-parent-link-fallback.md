@@ -1,0 +1,3 @@
+# parent_key falls back to a 'Relates' link when no native hierarchy applies
+
+`jira_create_issue` accepts an optional `parent_key`. When the child and parent issue types can't form a true Jira hierarchy — the child isn't a Sub-task, and the parent isn't an Epic, which is the common case when decomposing a Story into plain Tasks — the tool creates a generic `Relates` issue link instead of raising an error, since classic Jira Data Center projects have no native Story→Task parent field. Callers should not assume `parent_key` always produces a strict parent/child relationship; check the resulting link type if that distinction matters downstream.
