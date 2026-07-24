@@ -1,0 +1,245 @@
+<title>Lesson 1 — The Anatomy of an MCP Server</title>
+<link rel="stylesheet" href="../assets/style.css">
+
+<div class="kicker">MCP Servers &middot; Lesson 1</div>
+<h1>The Anatomy of an MCP Server</h1>
+
+<p>
+Open two files in your own repo:
+<code class="file-path">mcp/jira/jira_mcp/server.py</code> and
+<code class="file-path">mcp/src/server.py</code> (the knowledge-graph server).
+They both do the same job &mdash; expose tools to an AI agent &mdash; and they look
+almost nothing alike. One hand-writes JSON Schemas and wires up Starlette routes by
+hand. The other slaps a decorator on a plain Python function. Neither is wrong. By
+the end of this lesson you'll know exactly why they differ, and be able to choose
+deliberately next time instead of copying whichever file was open.
+</p>
+
+<div class="primary-source">
+  <div class="icon">&#128214;</div>
+  <div class="body">
+    <div class="label">Primary source for this lesson</div>
+    <a href="https://modelcontextprotocol.io/specification/2025-11-25/architecture">MCP Architecture &mdash; modelcontextprotocol.io</a>
+    &mdash; read this before your next session if you want the full picture beyond what's summarized below.
+  </div>
+</div>
+
+<h2>1. Host, client, server</h2>
+
+<p>
+MCP defines three roles. Get these three nouns exactly right &mdash; almost every
+later confusion in this topic comes from blurring them.
+</p>
+
+<ul>
+  <li><strong>Host</strong> &mdash; the LLM application the human is using. Claude Desktop, Claude Code, an IDE plugin. It's the thing that decides <em>when</em> to talk to a server.</li>
+  <li><strong>Client</strong> &mdash; a connector living <em>inside</em> the host, one per server it talks to. It speaks the wire protocol. You never write this &mdash; the host provides it.</li>
+  <li><strong>Server</strong> &mdash; what you write. A process that exposes capabilities (tools, resources, prompts) over a well-defined transport.</li>
+</ul>
+
+<p>
+When you run <code>python mcp/jira/jira_mcp/server.py</code>, you are starting a
+<strong>server</strong>. Claude Code, connecting to it, is the <strong>host</strong>,
+and it maintains a <strong>client</strong> internally for that connection. All
+messages between client and server are
+<a href="https://www.jsonrpc.org/">JSON-RPC 2.0</a> &mdash; a lightweight
+request/response format, not a REST API. That's why you never see HTTP verbs like
+<code>GET</code>/<code>POST</code> in the tool-handling code itself; you see method
+names like <code>tools/list</code> and <code>tools/call</code> instead.
+</p>
+
+<h2>2. Three things a server can offer</h2>
+
+<p>
+The spec's <a href="https://modelcontextprotocol.io/specification/2025-11-25/server">server features page</a>
+defines exactly three primitives. The critical distinction is <em>who decides to invoke it</em>:
+</p>
+
+<table>
+  <tr><th>Primitive</th><th>Invoked by</th><th>Shape</th><th>In your repo</th></tr>
+  <tr>
+    <td><strong>Tool</strong></td>
+    <td>The model, autonomously</td>
+    <td>A function call: name + JSON Schema args &rarr; result</td>
+    <td>Every server in <code>mcp/</code> today &mdash; <code>jira_get_issue</code>, <code>search_notes</code>, etc.</td>
+  </tr>
+  <tr>
+    <td><strong>Resource</strong></td>
+    <td>The app or user, like a GET request</td>
+    <td>A URI &rarr; content, read-only, no side effects</td>
+    <td>Unused so far &mdash; a candidate for <code>codegraph</code>'s read-only file/graph views instead of a tool</td>
+  </tr>
+  <tr>
+    <td><strong>Prompt</strong></td>
+    <td>The user, explicitly (e.g. a slash command)</td>
+    <td>A reusable templated message</td>
+    <td>Unused so far</td>
+  </tr>
+</table>
+
+<div class="callout">
+  <div class="callout-title">Why this matters for you</div>
+  Every one of your six servers only exposes tools. That's a defensible default (tools
+  are the most flexible primitive), but it's worth noticing it's a default, not a law.
+  Read-only lookups like <code>get_graph_stats()</code> or <code>jira_get_issue</code>
+  are arguably <em>resources</em> in spirit &mdash; the spec's own guidance is that
+  resources suit "application-controlled" read access better than model-invoked tools.
+  You've been vibecoding everything as a tool because that's the pattern you saw first.
+</div>
+
+<h2>3. Transport: how the bytes actually move</h2>
+
+<p>
+JSON-RPC messages need a pipe to travel over. MCP supports a few:
+</p>
+
+<ul>
+  <li><strong>stdio</strong> &mdash; server is a child process, messages go over stdin/stdout. Simplest, used when host and server run on the same machine (e.g. Claude Desktop launching a local server).</li>
+  <li><strong>SSE (Server-Sent Events)</strong> &mdash; server runs as an HTTP service; the server pushes messages over an SSE stream and the client posts back to a separate endpoint. This is what every server in <code>mcp/</code> uses today.</li>
+  <li><strong>Streamable HTTP</strong> &mdash; the direction the spec is moving in for remote servers, replacing raw SSE with a single HTTP endpoint that can stream. Worth watching: see the <a href="https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/">2026-07-28 release candidate notes</a> in <a href="../RESOURCES.md">RESOURCES.md</a>.</li>
+</ul>
+
+<p>
+Look at <code class="file-path">mcp/jira/jira_mcp/server.py</code>: it builds an
+<code>SseServerTransport("/messages/")</code> and mounts it onto a Starlette app by
+hand. Look at <code class="file-path">mcp/src/server.py</code>: it just calls
+<code>mcp.run(transport="sse")</code> at the bottom. Same transport, same wire
+format &mdash; wildly different amount of code, which brings us to the real point of
+this lesson.
+</p>
+
+<h2>4. Two APIs, one SDK</h2>
+
+<p>
+Both files import from the same package &mdash; <code>mcp==1.27.x</code>, the
+official Python SDK. It ships <em>two</em> layers:
+</p>
+
+<h3>Low-level: <code>mcp.server.Server</code> &mdash; what <code>jira_mcp/server.py</code> uses</h3>
+
+<pre><code>server = Server("jira-mcp")
+
+@server.list_tools()
+async def list_tools():
+    return ISSUE_TOOLS          # you hand-build Tool() objects with raw JSON Schema
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    return handle_issue_tool(name, arguments, client=get_client(), ...)
+
+# ...and you wire the Starlette/SSE app yourself:
+sse = SseServerTransport("/messages/")
+async def handle_sse(request):
+    async with sse.connect_sse(...) as (read, write):
+        await server.run(read, write, server.create_initialization_options())
+</code></pre>
+
+<p>
+You write the JSON Schema explicitly (<code>ISSUE_TOOLS</code> in
+<code class="file-path">jira_mcp/tools/issues.py</code>), one <code>if name == "..."</code>
+dispatch block, and the transport plumbing. More code, but total control &mdash;
+useful when, like jira's server, you need custom logic threaded through (parent-issue
+resolution, link-type lookups) that doesn't fit a single decorated function cleanly.
+</p>
+
+<h3>High-level: <code>mcp.server.fastmcp.FastMCP</code> &mdash; what <code>mcp/src/server.py</code> uses</h3>
+
+<pre><code>mcp = FastMCP("Knowledge Graph", host=HOST, port=PORT)
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+def search_notes(query: str, limit: int = 10) -> str:
+    """Search the knowledge graph by keyword. ...
+
+    Args:
+        query: Keyword to search for.
+        limit: Max results to return (capped at 50).
+    """
+    ...
+
+if __name__ == "__main__":
+    mcp.run(transport="sse")
+</code></pre>
+
+<p>
+No hand-written schema, no dispatch block, no Starlette wiring. FastMCP reads your
+type hints and docstring and generates the JSON Schema and the routing for you.
+Less code, less control &mdash; you trade explicitness for speed, which is why this
+server, with its long flat list of independent read/write tools, reads so much more
+compactly than jira's.
+</p>
+
+<div class="callout">
+  <div class="callout-title">The naming trap</div>
+  There are <em>two</em> things called "FastMCP" in the wild: the class bundled
+  inside the official SDK (<code>mcp.server.fastmcp.FastMCP</code>, what you're
+  actually importing) and a separate PyPI package, <code>fastmcp</code>, by
+  PrefectHQ, which is a superset with extra features (OAuth proxies, richer test
+  clients) that later versions of the bundled one partially absorbed. Your
+  <code>requirements.txt</code> files only pin <code>mcp</code> &mdash; you are not
+  using the standalone package, even though tutorials you find online may be.
+</div>
+
+<h2>Check yourself</h2>
+
+<p>Answer from memory before scrolling further &mdash; that retrieval effort is what makes this stick.</p>
+
+<div id="quiz"></div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+MCPQuiz.render(document.getElementById("quiz"), [
+  {
+    prompt: "In MCP, which role decides WHEN to call a tool?",
+    options: [
+      { text: "The transport layer", correct: false },
+      { text: "The connected client", correct: false },
+      { text: "The language model", correct: true },
+      { text: "The JSON-RPC socket", correct: false },
+    ],
+    explain: "The model autonomously decides to invoke a tool; the client is just the pipe it travels through.",
+  },
+  {
+    prompt: "A read-only, app-controlled lookup with no side effects best fits which primitive?",
+    options: [
+      { text: "A tool definition", correct: false },
+      { text: "A prompt template", correct: false },
+      { text: "A resource entry", correct: true },
+      { text: "A transport method", correct: false },
+    ],
+    explain: "Resources are the GET-like primitive — application-controlled, read-only, no side effects.",
+  },
+  {
+    prompt: "Which transport do all six servers in mcp/ currently use?",
+    options: [
+      { text: "Local stdio pipes", correct: false },
+      { text: "Server-Sent Events", correct: true },
+      { text: "Raw TCP sockets", correct: false },
+      { text: "WebSocket framing", correct: false },
+    ],
+    explain: "Every server in mcp/ mounts an SSE transport, whether via FastMCP's default or hand-wired Starlette.",
+  },
+  {
+    prompt: "Why does jira_mcp/server.py have so much more boilerplate than mcp/src/server.py?",
+    options: [
+      { text: "It targets an older protocol version", correct: false },
+      { text: "It uses the low-level Server API directly", correct: true },
+      { text: "It exposes many more tool functions", correct: false },
+      { text: "It runs over a slower transport choice", correct: false },
+    ],
+    explain: "Same SDK, same protocol version — jira_mcp uses the low-level mcp.server.Server API, hand-writing schemas and transport wiring instead of FastMCP's decorators.",
+  },
+]);
+</script>
+
+<p class="ask-agent">
+Something above unclear, or want to go look at a fourth server (<code>gitlab</code>,
+<code>oracle</code>, <code>azure_devops</code>) to check which API it uses? Ask your
+agent &mdash; that's what it's here for.
+</p>
+
+<p>See also: <a href="../reference/glossary.html">Glossary</a></p>
+
+<div class="lesson-nav">
+  <span>&larr; Start</span>
+  <span>Next: TBD</span>
+</div>

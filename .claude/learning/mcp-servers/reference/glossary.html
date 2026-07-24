@@ -1,0 +1,63 @@
+<title>MCP Servers — Glossary</title>
+<link rel="stylesheet" href="../assets/style.css">
+
+<div class="kicker">MCP Servers &middot; Reference</div>
+<h1>Glossary</h1>
+<p>Canonical vocabulary for this workspace. Established in <a href="../lessons/0001-anatomy-of-an-mcp-server.html">Lesson 1</a>. Use these words, not the aliases listed under each.</p>
+
+<h2>Core roles</h2>
+
+<p><strong>Host</strong>:<br>
+The LLM application that initiates connections and decides when to invoke a server's capabilities — e.g. Claude Desktop, Claude Code.<br>
+<em>Avoid</em>: client app, the AI</p>
+
+<p><strong>Client</strong>:<br>
+The connector living inside the host, one per connected server, that speaks JSON-RPC on the host's behalf. You do not write this.<br>
+<em>Avoid</em>: the AI, the caller</p>
+
+<p><strong>Server</strong>:<br>
+The process you write that exposes tools, resources, and/or prompts to a host over a transport. Everything in <code>mcp/</code> in this repo is a server.<br>
+<em>Avoid</em>: the integration, the backend</p>
+
+<h2>Primitives</h2>
+
+<p><strong>Tool</strong>:<br>
+A model-invoked function: a name, a JSON Schema for its arguments, and a result. The only primitive currently used anywhere in <code>mcp/</code>.<br>
+<em>Avoid</em>: function, action, endpoint</p>
+
+<p><strong>Resource</strong>:<br>
+An application- or user-controlled, read-only, side-effect-free piece of context addressed by URI — the GET-like primitive. Not yet used in this repo.<br>
+<em>Avoid</em>: data source, context object</p>
+
+<p><strong>Prompt</strong>:<br>
+A reusable, user-invoked message template exposed by a server (e.g. a slash command). Not yet used in this repo.<br>
+<em>Avoid</em>: template, macro</p>
+
+<h2>Transport</h2>
+
+<p><strong>Transport</strong>:<br>
+The mechanism JSON-RPC messages travel over between client and server.<br>
+<em>Avoid</em>: protocol (protocol is the message format; transport is the pipe)</p>
+
+<p><strong>stdio transport</strong>:<br>
+Server runs as a local child process; messages travel over stdin/stdout. Not used by any server in this repo (all use SSE).<br>
+<em>Avoid</em>: local mode</p>
+
+<p><strong>SSE transport</strong>:<br>
+Server runs as an HTTP service; it pushes messages over a Server-Sent Events stream while the client posts back to a separate endpoint. Used by every server in <code>mcp/</code> today.<br>
+<em>Avoid</em>: streaming mode, HTTP mode (too vague — streamable HTTP is a distinct, newer transport)</p>
+
+<h2>SDK terms — disambiguation</h2>
+
+<p><strong>Low-level API (<code>mcp.server.Server</code>)</strong>:<br>
+The SDK layer requiring hand-written <code>Tool</code> objects, explicit <code>list_tools</code>/<code>call_tool</code> handlers, and manual transport wiring. Used by <code>mcp/jira</code>.<br>
+<em>Avoid</em>: raw API, manual API</p>
+
+<p><strong>High-level API (<code>mcp.server.fastmcp.FastMCP</code>)</strong>:<br>
+The SDK layer that generates JSON Schema from type hints/docstrings via decorators and wires the transport for you. Used by <code>mcp/src</code> (knowledge-graph). Bundled inside the official <code>mcp</code> package — <strong>not</strong> the same thing as the standalone PrefectHQ <code>fastmcp</code> PyPI package.<br>
+<em>Avoid</em>: "FastMCP" unqualified when the distinction from the standalone package matters</p>
+
+<div class="lesson-nav">
+  <span><a href="../lessons/0001-anatomy-of-an-mcp-server.html">&larr; Lesson 1</a></span>
+  <span></span>
+</div>
