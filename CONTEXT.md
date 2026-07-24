@@ -24,3 +24,10 @@ The Jira MCP's auth credential — a bearer token issued per-user from Jira prof
 **Reporter**:
 The Jira user recorded as having raised an issue. Set explicitly per issue, independent of whichever account the Jira MCP itself authenticates as.
 _Avoid_: Assignee (who currently owns the work) or Author — reserve those for other roles.
+
+**BR (Business Rule)**:
+One business requirement extracted from a table row in an FDD or SDD document, identified by an ID such as `BR04`, `BRU01`, or `BRM23`. Parsed by the rule-file-driven `DocxRuleParser` (`webapp/src/docx_generic_parser.py`) per `parsing-rules/*.yml`.
+
+**BR ID prefix**:
+The letters before the digits in a BR ID (e.g. `BR`, `BRU`, `BRM`). An FDD/SDD document's author may use different prefixes to keep separate tables of business rules within the same document. The prefix is meaningful to the author, but the parser does not interpret *what* it means — it only validates the prefix against a per-rule-file allow-list (so a typo'd or unrecognized prefix surfaces as a warning instead of silently vanishing) and preserves it verbatim as part of the BR's identity.
+_Avoid_: "BR group" / "BR category" for the prefix — those terms are reserved for the parser's independently-inferred `candidate_categories` (`OracleEBS`, `Java`, `BatchJob`, `SQLView`), which are unrelated to the ID prefix and never vary by prefix.
