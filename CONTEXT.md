@@ -19,10 +19,10 @@ A Jira Kanban board, backed by a saved filter usually scoped to one Project. The
 The hierarchy relationship attached to a newly created Jira issue via `parent_key`. Resolves to one of three underlying mechanisms depending on the issue types involved: the native `parent` field (only valid when the child is a Sub-task), the Epic Link custom field (only valid when the parent is an Epic), or a fallback `Relates` issue link (any other combination, e.g. Task decomposed from a Story).
 
 **Personal Access Token (PAT)**:
-The Jira MCP's auth credential — a bearer token issued per-user from Jira profile settings, distinct from Basic Auth (username/password). The Jira MCP itself authenticates with a single shared PAT for all calls, regardless of which team member is behind a given request.
+A bearer token issued per-user from Jira profile settings, distinct from Basic Auth (username/password). Each team member supplies their own PAT to authenticate their own connection to the Jira MCP; the MCP itself holds no PAT of its own.
 
 **Reporter**:
-The Jira user recorded as having raised an issue. Set explicitly per issue, independent of whichever account the Jira MCP itself authenticates as.
+The Jira user recorded as having raised an issue. Determined automatically by whichever member's PAT authenticated the connection that created it — never set independently of the authenticating account.
 _Avoid_: Assignee (who currently owns the work) or Author — reserve those for other roles.
 
 **BR (Business Rule)**:

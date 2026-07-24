@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0006
+---
+
 # Attribution via explicit `reporter` field, not per-member Jira credentials
 
 The Jira MCP authenticates every call with one shared service-account PAT, even though multiple team members use the same running instance. To keep issues attributed to the human who actually asked for them — rather than the shared bot account — `jira_create_issue` and `jira_update_issue` accept an explicit `reporter` argument that the assistant fills in per call, instead of each member supplying their own PAT through `mcp.json`.

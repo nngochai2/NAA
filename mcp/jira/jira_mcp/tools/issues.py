@@ -57,14 +57,13 @@ ISSUE_TOOLS: list[Tool] = [
                 "assignee":    {"type": "string", "description": "Assignee username."},
                 "priority":    {"type": "string", "description": "Priority name, e.g. 'High'."},
                 "parent_key":  {"type": "string", "description": "Issue key to link this issue to as its parent."},
-                "reporter":    {"type": "string", "description": "Username of the member this issue should be attributed to."},
             },
             "required": ["title"],
         },
     ),
     Tool(
         name="jira_update_issue",
-        description="Update an existing Jira issue's title, description, labels, assignee, priority, or reporter.",
+        description="Update an existing Jira issue's title, description, labels, assignee, or priority.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -74,7 +73,6 @@ ISSUE_TOOLS: list[Tool] = [
                 "labels":      {"type": "array", "items": {"type": "string"}},
                 "assignee":    {"type": "string"},
                 "priority":    {"type": "string"},
-                "reporter":    {"type": "string", "description": "Username of the member this issue should be attributed to."},
             },
             "required": ["issue_key"],
         },
@@ -157,7 +155,6 @@ def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_ke
                 labels=arguments.get("labels"),
                 assignee=arguments.get("assignee"),
                 priority=arguments.get("priority"),
-                reporter=arguments.get("reporter"),
                 extra_fields=strategy["extra_fields"] if strategy else None,
             )
 
@@ -176,7 +173,6 @@ def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_ke
                 labels=arguments.get("labels"),
                 assignee=arguments.get("assignee"),
                 priority=arguments.get("priority"),
-                reporter=arguments.get("reporter"),
             )
             return _fmt({"issue_key": issue_key, "message": f"Issue {issue_key} updated."})
 
