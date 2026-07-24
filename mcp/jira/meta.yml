@@ -10,10 +10,6 @@ credentials:
     label: "Jira Base URL"
     secret: false
     placeholder: "https://insight.fsoft.com.vn/jiradc"
-  - key: JIRA_PAT
-    label: "Personal Access Token"
-    secret: true
-    placeholder: "..."
   - key: JIRA_PROJECT_KEY
     label: "Project Key"
     secret: false

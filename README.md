@@ -231,7 +231,8 @@ Copy-Item mcp\azure_devops\.env.example mcp\azure_devops\.env
 
 # Jira MCP
 Copy-Item mcp\jira\.env.example mcp\jira\.env
-# Edit mcp\jira\.env: set JIRA_URL, JIRA_PAT, JIRA_PROJECT_KEY, JIRA_SSL_VERIFY
+# Edit mcp\jira\.env: set JIRA_URL, JIRA_PROJECT_KEY, JIRA_SSL_VERIFY
+# No shared PAT here — each team member supplies their own PAT via their own mcp.json (see below)
 ```
 
 ---
@@ -280,11 +281,16 @@ Add this to your Claude MCP configuration (usually `~/.claude/mcp.json` or via t
     },
     "naa-jira": {
       "url": "http://localhost:8005/sse",
-      "transport": "sse"
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer <your-own-jira-pat>"
+      }
     }
   }
 }
 ```
+
+The Jira MCP is the one exception to "just paste the URL": it authenticates each connecting member with *their own* Jira PAT rather than a shared server-side credential (see `docs/adr/0006-jira-mcp-per-member-connection-scoped-pat.md`). Every team member using this server puts their own PAT in their own `mcp.json`'s `Authorization` header, exactly as shown above — a connection with a missing or malformed header is rejected outright.
 
 ### Cursor
 
@@ -430,16 +436,17 @@ Exposes issues from a self-hosted Jira Data Center project's Kanban board (REST 
 | `jira_link_issues` | Link two issues with a named relationship (e.g. `Blocks`, `Relates`), resolved dynamically against the instance's configured link types |
 | `jira_transition_issue` | Move an issue to a target workflow status by name, resolved dynamically against the issue's available transitions |
 
-**Required credentials (`mcp/jira/.env`):** `JIRA_URL`, `JIRA_PAT`, `JIRA_PROJECT_KEY`
+**Required credentials (`mcp/jira/.env`):** `JIRA_URL`, `JIRA_PROJECT_KEY`
 
 Optional: `JIRA_SSL_VERIFY` (default `true`; set `false` for a self-signed/internal-CA instance).
 
 ```dotenv
 JIRA_URL=https://insight.fsoft.com.vn/jiradc
-JIRA_PAT=
 JIRA_PROJECT_KEY=
 JIRA_SSL_VERIFY=true
 ```
+
+Unlike every other MCP in this repo, there is no shared PAT in `.env`. Each team member authenticates with their own Jira PAT, sent via their own `mcp.json`'s `Authorization: Bearer <PAT>` header — see "Connecting an AI Assistant" above and `docs/adr/0006-jira-mcp-per-member-connection-scoped-pat.md`. A connection without a valid header is rejected with HTTP 401 before it can call any tool.
 
 ---
 
@@ -493,7 +500,7 @@ Each module has its own `.env` (gitignored). Copy `.env.example` → `.env` in e
 | Git MCP | `mcp/git/.env` | `GIT_PROVIDER`, tokens — see Git MCP section above |
 | Oracle MCP | `mcp/oracle/.env` | Oracle connection vars — see Oracle MCP section above |
 | Azure DevOps MCP | `mcp/azure_devops/.env` | `ADO_BASE_URL`, `ADO_PROJECT`, `ADO_USERNAME`, `ADO_PASSWORD` — see Azure DevOps MCP section above |
-| Jira MCP | `mcp/jira/.env` | `JIRA_URL`, `JIRA_PAT`, `JIRA_PROJECT_KEY`, `JIRA_SSL_VERIFY` — see Jira MCP section above |
+| Jira MCP | `mcp/jira/.env` | `JIRA_URL`, `JIRA_PROJECT_KEY`, `JIRA_SSL_VERIFY` — PAT is per-member via `mcp.json`, see Jira MCP section above |
 | Pipeline | `pipeline/.env` | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` |
 
 Secrets (passwords, tokens) go in `.env` only — never in `config/settings.yml` or `mcp_state.json`.

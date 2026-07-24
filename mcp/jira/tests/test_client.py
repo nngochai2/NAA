@@ -126,21 +126,6 @@ def test_create_issue_includes_labels_assignee_and_priority_when_provided(make_c
     assert fields["priority"] == {"name": "High"}
 
 
-def test_create_issue_includes_reporter_when_provided(make_client):
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json={"id": "10008", "key": "PROJ-9", "self": "..."})
-
-    client = make_client(handler)
-
-    client.create_issue(project_key="PROJ", title="Reported by a real member", reporter="jdoe")
-
-    fields = captured["body"]["fields"]
-    assert fields["reporter"] == {"name": "jdoe"}
-
-
 def test_create_issue_merges_extra_fields_into_payload(make_client):
     captured = {}
 
@@ -207,20 +192,6 @@ def test_update_issue_with_all_fields_sends_all_fields(make_client):
             "priority": {"name": "High"},
         }
     }
-
-
-def test_update_issue_includes_reporter_when_provided(make_client):
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["body"] = json.loads(request.content) if request.content else None
-        return httpx.Response(204)
-
-    client = make_client(handler)
-
-    client.update_issue("PROJ-1", reporter="jdoe")
-
-    assert captured["body"] == {"fields": {"reporter": {"name": "jdoe"}}}
 
 
 def test_get_link_types_returns_parsed_list(make_client):
