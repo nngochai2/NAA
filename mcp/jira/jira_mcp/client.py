@@ -85,6 +85,7 @@ class JiraClient:
         labels: list[str] | None = None,
         assignee: str | None = None,
         priority: str | None = None,
+        reporter: str | None = None,
         extra_fields: dict | None = None,
     ) -> dict:
         fields: dict = {
@@ -98,6 +99,7 @@ class JiraClient:
             fields["labels"] = labels
         _add_name_field(fields, "assignee", assignee)
         _add_name_field(fields, "priority", priority)
+        _add_name_field(fields, "reporter", reporter)
         if extra_fields:
             fields.update(extra_fields)
 
@@ -113,6 +115,7 @@ class JiraClient:
         labels: list[str] | None = None,
         assignee: str | None = None,
         priority: str | None = None,
+        reporter: str | None = None,
     ) -> None:
         fields: dict = {}
         if title is not None:
@@ -123,6 +126,7 @@ class JiraClient:
             fields["labels"] = labels
         _add_name_field(fields, "assignee", assignee)
         _add_name_field(fields, "priority", priority)
+        _add_name_field(fields, "reporter", reporter)
 
         resp = self._http.put(f"/rest/api/2/issue/{issue_key}", json={"fields": fields})
         self._raise_for_status(resp)

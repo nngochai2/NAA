@@ -58,6 +58,26 @@ def test_jira_create_issue_defaults_to_task_type_and_returns_created_issue(make_
     assert json.loads(result[0].text) == {"id": "10001", "key": "PROJ-3", "self": "..."}
 
 
+def test_jira_create_issue_passes_reporter_through_to_client(make_client):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json={"id": "10009", "key": "PROJ-10", "self": "..."})
+
+    client = make_client(handler)
+
+    result = handle_issue_tool(
+        "jira_create_issue",
+        {"title": "Reported by a real member", "reporter": "jdoe"},
+        client=client,
+        project_key="PROJ",
+    )
+
+    assert len(result) == 1
+    assert captured["body"]["fields"]["reporter"] == {"name": "jdoe"}
+
+
 def test_jira_update_issue_returns_confirmation_message(make_client):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(204)
@@ -72,6 +92,23 @@ def test_jira_update_issue_returns_confirmation_message(make_client):
     body = json.loads(result[0].text)
     assert body["issue_key"] == "PROJ-1"
     assert "updated" in body["message"].lower()
+
+
+def test_jira_update_issue_passes_reporter_through_to_client(make_client):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content) if request.content else None
+        return httpx.Response(204)
+
+    client = make_client(handler)
+
+    result = handle_issue_tool(
+        "jira_update_issue", {"issue_key": "PROJ-1", "reporter": "jdoe"}, client=client, project_key="PROJ"
+    )
+
+    assert len(result) == 1
+    assert captured["body"]["fields"]["reporter"] == {"name": "jdoe"}
 
 
 def test_jira_link_issues_creates_link_and_returns_confirmation(make_client):
