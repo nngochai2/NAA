@@ -1,0 +1,79 @@
+# Parsing rule for Business Requirements extracted from FDD / SDD .docx files.
+#
+# Document structure assumed:
+#   - One or more BR tables, each row: | BR04 | full requirement text |
+#     A document may hold several BR tables using different ID prefixes
+#     (see id_prefixes below), e.g. one BRU-numbered table and one
+#     BRM-numbered table side by side.
+#   - All other content (headings, paragraphs, non-BR tables) is collected
+#     as document-level context and stored once on the Document node.
+
+name: "Business Requirements (FDD/SDD)"
+node_label: BR
+
+# ── Requirement row identification ────────────────────────────────────────────
+# Cell 0 of a table row must be one of the prefixes below (case-insensitive)
+# immediately followed by digits, to be treated as a BR row. A document may
+# contain multiple BR tables using different prefixes (e.g. one table numbered
+# BRU01, BRU23 and another numbered BRM01, BRM23) — every prefix that can
+# legally appear must be listed here. A prefix is opaque identity, not an
+# inferred category: add a line here to support a new one.
+id_prefixes:
+  - BR
+  - BRU
+  - BRM
+id_digit_width: 2            # BR4 → BR04, BRU4 → BRU04 (wider numbers pass through unpadded)
+id_flags: IGNORECASE
+
+# ── Title extraction ──────────────────────────────────────────────────────────
+# Take the first non-empty line of the body cell as the title.
+title_from: first_line
+
+# ── Category inference ────────────────────────────────────────────────────────
+# Each signal is evaluated against the full body text.
+# All matching categories are collected (not just the first).
+# Order here controls display priority in the UI.
+category_signals:
+  - name: SQLView
+    pattern: '\bVW_[A-Z_]+\b'
+
+  - name: OracleEBS
+    pattern: '\boracle[\s\-]?ebs?\b|\bptp\b|\bftp\s+file\b'
+    flags: IGNORECASE
+
+  - name: BatchJob
+    pattern: '\bbatch\s*job\b|\bschedule[dr]?\b|\bjob\s+param'
+    flags: IGNORECASE
+
+  - name: Java
+    pattern: '\bjava\b|\bspring\b|\brest[\s\-]?api\b|\bmicroservice\b'
+    flags: IGNORECASE
+
+# ── Named extractions ─────────────────────────────────────────────────────────
+# Run against the body text of each BR row.
+# Results are stored in named_extractions as {name: [values]}.
+named_extractions:
+  - name: views
+    # Oracle view names: VW_INVOICE_HDR, VW_AP_LINES, etc.
+    # transform: uppercase matches the old parser's text.upper() pre-processing
+    # so mixed-case occurrences are normalised before matching and storage.
+    pattern: '\bVW_[A-Z_]+\b'
+    flags: IGNORECASE
+    transform: uppercase
+    deduplicate: true
+    sort: true
+
+  - name: fields
+    # Quoted column / field names: "INVOICE_DATE", "Amount Due"
+    # group: 1 means use the first capture group, not the full match
+    pattern: '"([^"]{3,60})"'
+    group: 1
+    filter: no_spaces     # discard matches that contain a space character
+    deduplicate: true
+    sort: true
+
+# ── Document-level context ────────────────────────────────────────────────────
+# Non-BR content collected into a single context string on the Document node.
+context:
+  include_paragraphs: true       # standalone paragraph elements
+  include_non_br_tables: true    # tables that contain no BR rows

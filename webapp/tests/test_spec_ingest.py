@@ -65,6 +65,59 @@ class TestDocxRuleParser:
         assert "BR04"  not in context
         assert "BR 23" not in context
 
+    # ── Cycle 10 ──────────────────────────────────────────────────────────────
+
+    def test_multiple_tables_with_different_allowlisted_prefixes(self, rule_path, multi_prefix_docx):
+        """A document with a BRU table and a separate BRM table extracts both, IDs preserved verbatim."""
+        from src.docx_generic_parser import DocxRuleParser
+        items, _ = DocxRuleParser(rule_path).parse(multi_prefix_docx)
+        ids = {i.req_id for i in items}
+        assert ids == {"BRU01", "BRU23", "BRM01", "BRM23"}
+
+    # ── Cycle 11 ──────────────────────────────────────────────────────────────
+
+    def test_unrecognized_prefix_warns_instead_of_silently_dropping(self, rule_path, tmp_path):
+        """An ID shaped like a BR row but with a prefix not in the allow-list is skipped and warned about, not extracted."""
+        from docx import Document as DocxDocument
+        from src.docx_generic_parser import DocxRuleParser
+
+        doc = DocxDocument()
+        table = doc.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "BRX05"
+        table.cell(0, 1).text = "This uses a prefix that was never added to the rule file."
+        path = tmp_path / "unrecognized_prefix.docx"
+        doc.save(str(path))
+
+        parser = DocxRuleParser(rule_path)
+        items, _ = parser.parse(path)
+
+        assert items == []
+        assert any("BRX05" in w for w in parser.warnings)
+
+    # ── Cycle 12 ──────────────────────────────────────────────────────────────
+
+    def test_plain_prefix_not_shadowed_by_longer_prefix(self, rule_path, tmp_path):
+        """A plain 'BR' table alongside a 'BRU' table: BR04 must not be swallowed by the BRU alternative."""
+        from docx import Document as DocxDocument
+        from src.docx_generic_parser import DocxRuleParser
+
+        doc = DocxDocument()
+
+        br_table = doc.add_table(rows=1, cols=2)
+        br_table.cell(0, 0).text = "BR04"
+        br_table.cell(0, 1).text = "Plain BR rule body."
+
+        bru_table = doc.add_table(rows=1, cols=2)
+        bru_table.cell(0, 0).text = "BRU01"
+        bru_table.cell(0, 1).text = "Utility rule body."
+
+        path = tmp_path / "prefix_of_prefix.docx"
+        doc.save(str(path))
+
+        items, _ = DocxRuleParser(rule_path).parse(path)
+        ids = {i.req_id for i in items}
+        assert ids == {"BR04", "BRU01"}
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAPH TESTS  (require Neo4j at bolt://localhost:7687)

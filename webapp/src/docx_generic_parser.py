@@ -11,7 +11,6 @@ title, body, source_file, candidate_categories, named_extractions, metadata).
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -76,9 +75,9 @@ def _dedup_merged_cells(row_cells) -> list[str]:
     return result
 
 
-def _table_has_id_row(table: Table, id_re: re.Pattern) -> bool:
+def _table_has_matching_row(table: Table, pattern: re.Pattern) -> bool:
     for row in table.rows:
-        if row.cells and id_re.match(row.cells[0].text.strip()):
+        if row.cells and pattern.match(row.cells[0].text.strip()):
             return True
     return False
 
@@ -102,11 +101,32 @@ class DocxRuleParser:
 
         self.rule_name  = rule.get("name", rule_path.stem)
         self.node_label = rule.get("node_label", "Requirement")
+        self.warnings: list[str] = []
 
-        # ID matching
-        id_flags    = _parse_flags(rule.get("id_flags"))
-        self._id_re  = re.compile(rule["id_pattern"], id_flags)
-        self._id_fmt = rule.get("id_format", "{}")
+        # ID matching — allow-list of prefixes (e.g. BR, BRU, BRM). A prefix is
+        # opaque identity: matched case-insensitively, preserved verbatim as
+        # captured (no casing normalisation) when building req_id.
+        id_flags = _parse_flags(rule.get("id_flags"))
+        prefixes: list[str] = rule.get("id_prefixes", [])
+        if not prefixes:
+            raise ValueError(f"{rule_path}: rule file must define at least one id_prefixes entry")
+        self._digit_width = int(rule.get("id_digit_width", 2))
+
+        # Longest-first alternation so e.g. "BRU" isn't shadowed by a shorter "BR".
+        alternation  = "|".join(re.escape(p) for p in sorted(prefixes, key=len, reverse=True))
+        self._id_re  = re.compile(rf"^(?P<prefix>{alternation})\s*(?P<num>\d+)$", id_flags)
+
+        # Loose "near miss" shape: a letter-run whose length falls within the
+        # configured prefixes' own length range (+2 tolerance) followed by
+        # digits — used only to catch unrecognized prefixes and warn about them
+        # instead of losing them silently in generic document context. Sized
+        # off prefix *lengths*, not shared characters, so it stays meaningful
+        # even when a rule file's prefixes don't share a common substring.
+        min_len = min(len(p) for p in prefixes)
+        max_len = max(len(p) for p in prefixes)
+        self._near_miss_re = re.compile(
+            rf"^[A-Z]{{{min_len},{max_len + 2}}}\s*\d+$", re.IGNORECASE
+        )
 
         # Title extraction
         self._title_from = rule.get("title_from", "first_line")
@@ -149,6 +169,7 @@ class DocxRuleParser:
         path = Path(docx_path)
         doc  = DocxDocument(path)
 
+        self.warnings = []
         context = self._collect_context(doc)
         items   = self._extract_items(doc, path.name, source_label)
 
@@ -169,7 +190,7 @@ class DocxRuleParser:
 
             elif tag == "tbl" and self._ctx_non_br_tables:
                 table = Table(child, doc)
-                if _table_has_id_row(table, self._id_re):
+                if _table_has_matching_row(table, self._near_miss_re):
                     continue
                 rows_text = []
                 for row in table.rows:
@@ -198,7 +219,7 @@ class DocxRuleParser:
                 continue
 
             table = Table(child, doc)
-            if not _table_has_id_row(table, self._id_re):
+            if not _table_has_matching_row(table, self._near_miss_re):
                 continue
 
             for row in table.rows:
@@ -209,6 +230,11 @@ class DocxRuleParser:
 
                 m = self._id_re.match(non_empty[0])
                 if not m:
+                    if self._near_miss_re.match(non_empty[0]):
+                        self.warnings.append(
+                            f"{source_file}: '{non_empty[0]}' looks like a {self.node_label} row "
+                            f"but its prefix isn't in id_prefixes — add it to the rule file to include it"
+                        )
                     continue
 
                 req_id = self._format_id(m)
@@ -232,10 +258,9 @@ class DocxRuleParser:
     # ── Per-item helpers ───────────────────────────────────────────────────────
 
     def _format_id(self, match: re.Match) -> str:
-        try:
-            return self._id_fmt.format(int(match.group(1)))
-        except (IndexError, ValueError):
-            return self._id_fmt.format(match.group(0))
+        prefix = match.group("prefix")
+        num    = int(match.group("num"))
+        return f"{prefix}{num:0{self._digit_width}d}"
 
     def _extract_title(self, body: str, fallback: str) -> str:
         if self._title_from == "first_line":
