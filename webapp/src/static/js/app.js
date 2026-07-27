@@ -84,6 +84,7 @@ function vaultApp() {
       docType:        '',
       status:         'idle',  // idle | parsing | done | error
       items:          [],
+      warnings:       [],
       contextLength:  0,
       ruleName:       '',
       nodeLabel:      '',
@@ -628,6 +629,7 @@ function vaultApp() {
       if (!rulePath || !this.docs.docxPath.trim()) return;
       this.docs.status      = 'parsing';
       this.docs.error       = '';
+      this.docs.warnings    = [];
       this.docs.selectedItem = null;
       if (dryRun) { this.docs.items = []; this.docs.ingested = false; }
       try {
@@ -652,6 +654,7 @@ function vaultApp() {
         }
         this.docs.status        = 'done';
         this.docs.items         = d.items;
+        this.docs.warnings      = d.warnings || [];
         this.docs.contextLength = d.context_length;
         this.docs.ruleName      = d.rule_name;
         this.docs.nodeLabel     = d.node_label;

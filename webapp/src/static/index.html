@@ -494,6 +494,15 @@
         <div style="font-size:10px;color:var(--err)" x-text="docs.error"></div>
       </div>
 
+      <!-- Unrecognized-prefix warnings -->
+      <div x-show="docs.warnings.length > 0" class="p-sec" style="padding-top:10px;padding-bottom:10px;flex-shrink:0">
+        <div style="font-size:10px;color:var(--warn);margin-bottom:4px"
+             x-text="docs.warnings.length + ' row(s) skipped — unrecognized ID prefix:'"></div>
+        <template x-for="(w, i) in docs.warnings" :key="i">
+          <div style="font-size:10px;color:var(--warn);opacity:0.85" x-text="w"></div>
+        </template>
+      </div>
+
       <!-- Results list -->
       <template x-if="docs.items.length > 0">
         <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
@@ -656,7 +665,7 @@
         </template>
         <template x-if="docs.status === 'done' && docs.ingested">
           <button class="btn btn-ghost btn-lg"
-                  @click="docs.status = 'idle'; docs.items = []; docs.selectedItem = null; docs.error = ''">
+                  @click="docs.status = 'idle'; docs.items = []; docs.warnings = []; docs.selectedItem = null; docs.error = ''">
             ⊹ PARSE ANOTHER
           </button>
         </template>
