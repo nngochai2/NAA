@@ -72,6 +72,32 @@ def sample_docx(tmp_path) -> Path:
     return path
 
 
+@pytest.fixture
+def multi_prefix_docx(tmp_path) -> Path:
+    """
+    .docx with two separate BR tables using different ID prefixes:
+      - BRU table (BRU01, BRU23)
+      - BRM table (BRM01, BRM23)
+    """
+    doc = DocxDocument()
+
+    bru = doc.add_table(rows=2, cols=2)
+    bru.cell(0, 0).text = "BRU01"
+    bru.cell(0, 1).text = "First line of BRU01\nUtility rule body."
+    bru.cell(1, 0).text = "BRU23"
+    bru.cell(1, 1).text = "First line of BRU23\nAnother utility rule."
+
+    brm = doc.add_table(rows=2, cols=2)
+    brm.cell(0, 0).text = "BRM01"
+    brm.cell(0, 1).text = "First line of BRM01\nMain rule body."
+    brm.cell(1, 0).text = "BRM23"
+    brm.cell(1, 1).text = "First line of BRM23\nAnother main rule."
+
+    path = tmp_path / "multi_prefix_fixture.docx"
+    doc.save(str(path))
+    return path
+
+
 # ── Graph fixture ─────────────────────────────────────────────────────────────
 
 @pytest.fixture

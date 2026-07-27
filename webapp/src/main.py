@@ -675,6 +675,7 @@ async def parse_doc(req: DocParseRequest, session: SessionState = Depends(get_se
             )
             for item in items
         ],
+        warnings=parser.warnings,
     )
 
 

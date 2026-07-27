@@ -233,6 +233,7 @@ class DocParseResponse(BaseModel):
     ingested:         bool
     hierarchy_built:  bool = False   # True when Flow→UC→Doc→BR chain was created
     items:            list[ParsedItemDetail]
+    warnings:         list[str] = []
 
 
 # ── Error ─────────────────────────────────────────────────────────────────────
