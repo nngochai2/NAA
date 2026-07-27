@@ -118,6 +118,37 @@ class TestDocxRuleParser:
         ids = {i.req_id for i in items}
         assert ids == {"BR04", "BRU01"}
 
+    # ── Cycle 13 ──────────────────────────────────────────────────────────────
+
+    def test_brw_prefix_is_allowlisted(self, rule_path, tmp_path):
+        """Regression: a BRM table alongside a BRW table extracts both — BRW must be in id_prefixes."""
+        from docx import Document as DocxDocument
+        from src.docx_generic_parser import DocxRuleParser
+
+        doc = DocxDocument()
+
+        brm = doc.add_table(rows=2, cols=2)
+        brm.cell(0, 0).text = "BRM01"
+        brm.cell(0, 1).text = "BRM rule one."
+        brm.cell(1, 0).text = "BRM23"
+        brm.cell(1, 1).text = "BRM rule two."
+
+        brw = doc.add_table(rows=2, cols=2)
+        brw.cell(0, 0).text = "BRW01"
+        brw.cell(0, 1).text = "BRW rule one."
+        brw.cell(1, 0).text = "BRW23"
+        brw.cell(1, 1).text = "BRW rule two."
+
+        path = tmp_path / "brm_brw.docx"
+        doc.save(str(path))
+
+        parser = DocxRuleParser(rule_path)
+        items, _ = parser.parse(path)
+
+        ids = {i.req_id for i in items}
+        assert ids == {"BRM01", "BRM23", "BRW01", "BRW23"}
+        assert parser.warnings == []
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAPH TESTS  (require Neo4j at bolt://localhost:7687)

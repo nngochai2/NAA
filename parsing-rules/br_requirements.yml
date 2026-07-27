@@ -22,6 +22,7 @@ id_prefixes:
   - BR
   - BRU
   - BRM
+  - BRW
 id_digit_width: 2            # BR4 → BR04, BRU4 → BRU04 (wider numbers pass through unpadded)
 id_flags: IGNORECASE
 
