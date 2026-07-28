@@ -431,7 +431,7 @@ Exposes issues from a self-hosted Jira Data Center project's Kanban board (REST 
 |---|---|
 | `jira_get_issue` | Full detail of one issue by key |
 | `jira_list_issues` | List issues in the configured project, with optional status / label / assignee filter |
-| `jira_create_issue` | Create a new issue (defaults to type `Task`); optional `parent_key` links it to a parent — see `docs/adr/0001-jira-mcp-dynamic-resolution.md` and `docs/adr/0003-jira-mcp-parent-link-fallback.md` |
+| `jira_create_issue` | Create a new issue (defaults to type `Task`); optional `parent_key` links it to a parent, `components`/`due_date`/`custom_fields` cover project-specific required fields, and creation is validated against the project's create-screen requirements before it's sent — see `docs/adr/0001-jira-mcp-dynamic-resolution.md`, `docs/adr/0003-jira-mcp-parent-link-fallback.md`, and `docs/adr/0007-jira-mcp-dynamic-required-field-resolution.md` |
 | `jira_update_issue` | Edit title, description, labels, assignee, or priority |
 | `jira_link_issues` | Link two issues with a named relationship (e.g. `Blocks`, `Relates`), resolved dynamically against the instance's configured link types |
 | `jira_transition_issue` | Move an issue to a target workflow status by name, resolved dynamically against the issue's available transitions |

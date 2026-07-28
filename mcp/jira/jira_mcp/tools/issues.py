@@ -9,6 +9,8 @@ from mcp.types import TextContent, Tool, ToolAnnotations
 from ..client import JiraApiError, JiraClient
 from ..hierarchy import (
     find_epic_link_field_id,
+    find_missing_required_fields,
+    resolve_custom_fields,
     resolve_link_type_id,
     resolve_parent_strategy,
     resolve_transition_id,
@@ -57,6 +59,19 @@ ISSUE_TOOLS: list[Tool] = [
                 "assignee":    {"type": "string", "description": "Assignee username."},
                 "priority":    {"type": "string", "description": "Priority name, e.g. 'High'."},
                 "parent_key":  {"type": "string", "description": "Issue key to link this issue to as its parent."},
+                "components":  {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Component names, e.g. ['Backend', 'API'].",
+                },
+                "due_date": {"type": "string", "description": "Due date in 'YYYY-MM-DD' format."},
+                "custom_fields": {
+                    "type": "object",
+                    "description": (
+                        "Project-specific fields not covered by the other parameters, keyed by "
+                        "the exact field name shown on this project's issue-create screen "
+                        "(e.g. {'Product': 'Mobile App', 'Planned Start': '2026-08-01'})."
+                    ),
+                },
             },
             "required": ["title"],
         },
@@ -113,7 +128,7 @@ def _err(msg: str) -> list[TextContent]:
     return [TextContent(type="text", text=f"Error: {msg}")]
 
 
-def _resolve_parent(client: JiraClient, project_key: str, issue_type: str, parent_key: str) -> dict:
+def _resolve_parent(client: JiraClient, issue_type: str, parent_key: str, fields_meta: dict) -> dict:
     """Fetches whatever Jira metadata is needed, then delegates the actual
     parent-linking decision to hierarchy.resolve_parent_strategy (ADR 0001 + ADR 0003)."""
     if issue_type.lower() == "sub-task":
@@ -124,8 +139,25 @@ def _resolve_parent(client: JiraClient, project_key: str, issue_type: str, paren
         parent_issue_type = parent_issue["fields"]["issuetype"]["name"]
         epic_link_field_id = None
         if parent_issue_type.lower() == "epic":
-            epic_link_field_id = find_epic_link_field_id(client.get_create_meta(project_key, issue_type))
+            epic_link_field_id = find_epic_link_field_id(fields_meta)
     return resolve_parent_strategy(parent_key, issue_type, parent_issue_type, epic_link_field_id)
+
+
+def _provided_standard_field_ids(arguments: dict) -> set[str]:
+    ids = {"project", "summary", "issuetype"}
+    if arguments.get("description") is not None:
+        ids.add("description")
+    if arguments.get("labels"):
+        ids.add("labels")
+    if arguments.get("assignee") is not None:
+        ids.add("assignee")
+    if arguments.get("priority") is not None:
+        ids.add("priority")
+    if arguments.get("components"):
+        ids.add("components")
+    if arguments.get("due_date") is not None:
+        ids.add("duedate")
+    return ids
 
 
 def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_key: str) -> list[TextContent]:
@@ -145,7 +177,25 @@ def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_ke
         if name == "jira_create_issue":
             issue_type = arguments.get("issue_type", "Task")
             parent_key = arguments.get("parent_key")
-            strategy = _resolve_parent(client, project_key, issue_type, parent_key) if parent_key else None
+            fields_meta = client.get_create_meta(project_key, issue_type)
+
+            extra_fields: dict = {}
+            strategy = None
+            if parent_key:
+                strategy = _resolve_parent(client, issue_type, parent_key, fields_meta)
+                extra_fields.update(strategy["extra_fields"])
+            if arguments.get("custom_fields"):
+                extra_fields.update(resolve_custom_fields(arguments["custom_fields"], fields_meta))
+
+            if fields_meta:
+                provided_ids = _provided_standard_field_ids(arguments) | extra_fields.keys()
+                missing = find_missing_required_fields(fields_meta, provided_ids)
+                if missing:
+                    return _err(
+                        "This project's issue-create screen requires additional fields not "
+                        f"supplied: {', '.join(missing)}. Pass them via 'components', 'due_date', "
+                        "or 'custom_fields' (keyed by the field's exact name)."
+                    )
 
             created = client.create_issue(
                 project_key=project_key,
@@ -155,7 +205,9 @@ def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_ke
                 labels=arguments.get("labels"),
                 assignee=arguments.get("assignee"),
                 priority=arguments.get("priority"),
-                extra_fields=strategy["extra_fields"] if strategy else None,
+                components=arguments.get("components"),
+                due_date=arguments.get("due_date"),
+                extra_fields=extra_fields or None,
             )
 
             if strategy and strategy["post_create_link"]:

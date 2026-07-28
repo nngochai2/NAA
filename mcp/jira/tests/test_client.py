@@ -126,6 +126,27 @@ def test_create_issue_includes_labels_assignee_and_priority_when_provided(make_c
     assert fields["priority"] == {"name": "High"}
 
 
+def test_create_issue_includes_components_and_due_date_when_provided(make_client):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json={"id": "10009", "key": "PROJ-9", "self": "..."})
+
+    client = make_client(handler)
+
+    client.create_issue(
+        project_key="PROJ",
+        title="Ship the widget",
+        components=["Backend", "API"],
+        due_date="2026-08-01",
+    )
+
+    fields = captured["body"]["fields"]
+    assert fields["components"] == [{"name": "Backend"}, {"name": "API"}]
+    assert fields["duedate"] == "2026-08-01"
+
+
 def test_create_issue_merges_extra_fields_into_payload(make_client):
     captured = {}
 

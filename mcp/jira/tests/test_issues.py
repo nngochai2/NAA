@@ -164,10 +164,13 @@ def test_jira_create_issue_with_subtask_parent_sets_native_parent_field(make_cli
     captured = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/rest/api/2/issue") and request.method == "POST":
+        path = request.url.path
+        if path.endswith("/rest/api/2/issue/createmeta"):
+            return httpx.Response(200, json={"projects": []})
+        if path.endswith("/rest/api/2/issue") and request.method == "POST":
             captured["body"] = json.loads(request.content)
             return httpx.Response(201, json={"id": "10005", "key": "PROJ-6", "self": "..."})
-        raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
+        raise AssertionError(f"Unexpected request: {request.method} {path}")
 
     client = make_client(handler)
 
@@ -227,6 +230,8 @@ def test_jira_create_issue_with_non_epic_non_subtask_parent_falls_back_to_relate
 
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if path.endswith("/rest/api/2/issue/createmeta"):
+            return httpx.Response(200, json={"projects": []})
         if path.endswith("/rest/api/2/issue/PROJ-1") and request.method == "GET":
             return httpx.Response(200, json={"key": "PROJ-1", "fields": {"issuetype": {"name": "Story"}}})
         if path.endswith("/rest/api/2/issue") and request.method == "POST":
@@ -256,3 +261,111 @@ def test_jira_create_issue_with_non_epic_non_subtask_parent_falls_back_to_relate
         "inwardIssue": {"key": "PROJ-8"},
         "outwardIssue": {"key": "PROJ-1"},
     }]
+
+
+def test_jira_create_issue_resolves_custom_fields_by_name_via_createmeta(make_client):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/rest/api/2/issue/createmeta"):
+            return httpx.Response(200, json={
+                "projects": [{
+                    "key": "PROJ",
+                    "issuetypes": [{
+                        "name": "Task",
+                        "fields": {
+                            "summary": {"name": "Summary", "required": True},
+                            "customfield_10050": {
+                                "name": "Product", "required": True, "schema": {"type": "option"},
+                            },
+                            "customfield_10051": {
+                                "name": "Planned Start", "required": True, "schema": {"type": "date"},
+                            },
+                        },
+                    }],
+                }]
+            })
+        if path.endswith("/rest/api/2/issue") and request.method == "POST":
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(201, json={"id": "10010", "key": "PROJ-10", "self": "..."})
+        raise AssertionError(f"Unexpected request: {request.method} {path}")
+
+    client = make_client(handler)
+
+    result = handle_issue_tool(
+        "jira_create_issue",
+        {
+            "title": "New feature",
+            "custom_fields": {"Product": "Mobile App", "Planned Start": "2026-08-01"},
+        },
+        client=client,
+        project_key="PROJ",
+    )
+
+    assert len(result) == 1
+    assert json.loads(result[0].text) == {"id": "10010", "key": "PROJ-10", "self": "..."}
+    fields = captured["body"]["fields"]
+    assert fields["customfield_10050"] == {"value": "Mobile App"}
+    assert fields["customfield_10051"] == "2026-08-01"
+
+
+def test_jira_create_issue_passes_through_components_and_due_date(make_client):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/rest/api/2/issue/createmeta"):
+            return httpx.Response(200, json={"projects": []})
+        if path.endswith("/rest/api/2/issue") and request.method == "POST":
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(201, json={"id": "10011", "key": "PROJ-11", "self": "..."})
+        raise AssertionError(f"Unexpected request: {request.method} {path}")
+
+    client = make_client(handler)
+
+    result = handle_issue_tool(
+        "jira_create_issue",
+        {"title": "Ship the widget", "components": ["Backend", "API"], "due_date": "2026-08-01"},
+        client=client,
+        project_key="PROJ",
+    )
+
+    assert len(result) == 1
+    assert json.loads(result[0].text) == {"id": "10011", "key": "PROJ-11", "self": "..."}
+    fields = captured["body"]["fields"]
+    assert fields["components"] == [{"name": "Backend"}, {"name": "API"}]
+    assert fields["duedate"] == "2026-08-01"
+
+
+def test_jira_create_issue_returns_clear_error_when_required_fields_are_missing(make_client):
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/rest/api/2/issue/createmeta"):
+            return httpx.Response(200, json={
+                "projects": [{
+                    "key": "PROJ",
+                    "issuetypes": [{
+                        "name": "Task",
+                        "fields": {
+                            "summary": {"name": "Summary", "required": True},
+                            "components": {"name": "Component/s", "required": True},
+                            "customfield_10050": {
+                                "name": "Product", "required": True, "schema": {"type": "option"},
+                            },
+                        },
+                    }],
+                }]
+            })
+        raise AssertionError(f"Unexpected request: {request.method} {path}")
+
+    client = make_client(handler)
+
+    result = handle_issue_tool(
+        "jira_create_issue", {"title": "New feature"}, client=client, project_key="PROJ"
+    )
+
+    assert len(result) == 1
+    assert result[0].text.startswith("Error:")
+    assert "Component/s" in result[0].text
+    assert "Product" in result[0].text

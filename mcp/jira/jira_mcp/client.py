@@ -81,6 +81,8 @@ class JiraClient:
         labels: list[str] | None = None,
         assignee: str | None = None,
         priority: str | None = None,
+        components: list[str] | None = None,
+        due_date: str | None = None,
         extra_fields: dict | None = None,
     ) -> dict:
         fields: dict = {
@@ -94,6 +96,10 @@ class JiraClient:
             fields["labels"] = labels
         _add_name_field(fields, "assignee", assignee)
         _add_name_field(fields, "priority", priority)
+        if components:
+            fields["components"] = [{"name": name} for name in components]
+        if due_date is not None:
+            fields["duedate"] = due_date
         if extra_fields:
             fields.update(extra_fields)
 
