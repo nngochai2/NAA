@@ -59,6 +59,7 @@ function vaultApp() {
       configEdit: { host: '', port: '' },
       creds:      {},       // { [serverName]: [{key, label, secret, placeholder, is_set}] }
       credEdit:   {},       // { ['serverName.KEY']: value }
+      credShow:   {},       // { ['serverName.KEY']: true } when a secret field is unhidden
       credError:  '',
       credOk:     false,
       busy:       '',       // server name currently acting, or 'all'

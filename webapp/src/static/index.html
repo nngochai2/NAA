@@ -1033,9 +1033,12 @@
                   <span style="font-size:9px;color:var(--text3);width:80px;flex-shrink:0"
                         x-text="f.label.toUpperCase()"></span>
                   <input style="flex:1" class="mono-input"
-                         :type="f.secret ? 'password' : 'text'"
+                         :type="f.secret && !mcp.credShow[mcp.selected + '.' + f.key] ? 'password' : 'text'"
                          :placeholder="f.is_set ? '••••••• (set)' : f.placeholder"
                          x-model="mcp.credEdit[mcp.selected + '.' + f.key]" />
+                  <button x-show="f.secret" class="btn btn-ghost btn-sm" style="flex-shrink:0;width:64px"
+                          @click="mcp.credShow[mcp.selected + '.' + f.key] = !mcp.credShow[mcp.selected + '.' + f.key]"
+                          x-text="mcp.credShow[mcp.selected + '.' + f.key] ? 'HIDE' : 'UNHIDE'"></button>
                   <span style="font-size:9px;width:12px;flex-shrink:0"
                         :style="f.is_set ? 'color:var(--accent)' : 'color:var(--text3)'"
                         x-text="f.is_set ? '✓' : '○'"></span>
