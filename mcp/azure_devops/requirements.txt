@@ -6,5 +6,6 @@ uvicorn>=0.29.0
 anyio>=4.3.0
 python-docx>=1.1.0
 openpyxl>=3.1.0
+pypdf>=4.0.0
 # NTLM authentication for Windows domain accounts:
 httpx-ntlm>=1.4.0

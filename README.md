@@ -415,7 +415,7 @@ Exposes work items from an on-premises Azure DevOps Server collection over Basic
 | `get_work_item_comments` | Discussion thread / history entries for a work item |
 | `get_related_items` | Linked items (parent, child, related, duplicate, etc.) with resolved title and state |
 | `list_work_item_attachments` | List file attachments (name, size, comment) |
-| `read_work_item_attachment` | Download and extract text from a `.docx` or `.xlsx` attachment |
+| `read_work_item_attachment` | Download and extract text from a `.docx`, `.xlsx` or `.pdf` attachment, or return an image (`.png`, `.jpg`, `.gif`, `.webp`, max 5 MB) as image content |
 
 **Required credentials (`mcp/azure_devops/.env`):** `ADO_BASE_URL`, `ADO_PROJECT`, `ADO_USERNAME`, `ADO_PASSWORD`
 

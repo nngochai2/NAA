@@ -7,6 +7,7 @@ Auth: Basic (username:password base64). If your ADO Server requires NTLM,
 install `requests-ntlm` and swap the auth section (see comments below).
 """
 
+import base64
 import html
 import io
 import json
@@ -23,7 +24,7 @@ from dotenv import load_dotenv
 from httpx_ntlm import HttpNtlmAuth
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
-from mcp.types import TextContent, Tool, ToolAnnotations
+from mcp.types import ImageContent, TextContent, Tool, ToolAnnotations
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.routing import Mount, Route
@@ -289,9 +290,33 @@ def _read_xlsx(data: bytes) -> str:
     return "\n".join(parts)
 
 
+def _read_pdf(data: bytes) -> str:
+
+    from pypdf import PdfReader
+
+    reader = PdfReader(io.BytesIO(data))
+    parts: list[str] = []
+    for i, page in enumerate(reader.pages, start=1):
+        text = (page.extract_text() or "").strip()
+        if text:
+            parts.append(f"=== Page {i} ===")
+            parts.append(text)
+    return "\n".join(parts)
+
+
 # --------------------------------------------------------------------------
 # Attachment helpers
 # --------------------------------------------------------------------------
+
+
+IMAGE_MIME_TYPES = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 def _attachment_relations(item_id: int) -> list[dict[str, Any]]:
@@ -319,7 +344,9 @@ def list_attachments(item_id: int) -> list[dict[str, Any]]:
 def read_attachment(item_id: int, filename: str) -> dict[str, Any]:
     """
     Download the first attachment whose name matches *filename* (case-insensitive)
-    and return its extracted text content.  Supports .docx and .xlsx only.
+    and return its extracted text content.  Supports .docx, .xlsx and .pdf.
+    Images (png, jpg, jpeg, gif, webp) are returned as base64 under
+    ``image_base64`` with their ``mime_type`` for the caller to emit as image content.
     """
     relations = _attachment_relations(item_id)
     match = next(
@@ -332,8 +359,14 @@ def read_attachment(item_id: int, filename: str) -> dict[str, Any]:
 
     name: str = match["attributes"]["name"]
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-    if ext not in ("docx", "xlsx"):
-        return {"error": f"Unsupported file type '.{ext}'. Only .docx and .xlsx are supported."}
+    readers = {"docx": _read_docx, "xlsx": _read_xlsx, "pdf": _read_pdf}
+    if ext not in readers and ext not in IMAGE_MIME_TYPES:
+        return {
+            "error": (
+                f"Unsupported file type '.{ext}'. Supported: .docx, .xlsx, .pdf, "
+                f"{', '.join('.' + e for e in IMAGE_MIME_TYPES)}."
+            )
+        }
 
     url = match["url"]
     resp = httpx.get(
@@ -344,7 +377,20 @@ def read_attachment(item_id: int, filename: str) -> dict[str, Any]:
         verify=False,
     )
     resp.raise_for_status()
-    content = _read_docx(resp.content) if ext == "docx" else _read_xlsx(resp.content)
+    if ext in IMAGE_MIME_TYPES:
+        if len(resp.content) > MAX_IMAGE_BYTES:
+            return {
+                "error": (
+                    f"Image '{name}' is {len(resp.content)} bytes, over the "
+                    f"{MAX_IMAGE_BYTES}-byte limit."
+                )
+            }
+        return {
+            "name": name,
+            "mime_type": IMAGE_MIME_TYPES[ext],
+            "image_base64": base64.b64encode(resp.content).decode("ascii"),
+        }
+    content = readers[ext](resp.content)
     return {"name": name, "content": content}
 
 
@@ -460,10 +506,11 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="read_work_item_attachment",
             description=(
-                "Download and extract the text content of a .docx or .xlsx attachment "
-                "from a work item. Use list_work_item_attachments first to get the exact filename. "
+                "Download and read a .docx, .xlsx, .pdf or image (.png, .jpg, .jpeg, .gif, .webp) "
+                "attachment from a work item. Use list_work_item_attachments first to get the exact filename. "
                 "Returns the full text of the document (paragraphs and tables for .docx; "
-                "all sheets/cells for .xlsx)."
+                "all sheets/cells for .xlsx; per-page text for .pdf — scanned PDFs without "
+                "a text layer return no text). Images (max 5 MB) are returned as image content."
             ),
             annotations=ToolAnnotations(readOnlyHint=True),
             inputSchema={
@@ -516,6 +563,16 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
         else:
             result = {"error": f"Unknown tool: {name}"}
+
+        if isinstance(result, dict) and "image_base64" in result:
+            return [
+                TextContent(type="text", text=f"Image attachment: {result['name']}"),
+                ImageContent(
+                    type="image",
+                    data=result["image_base64"],
+                    mimeType=result["mime_type"],
+                ),
+            ]
 
         return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
 
