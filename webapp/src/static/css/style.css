@@ -99,6 +99,11 @@ html, body {
 .pane            { display: flex; flex-direction: column; overflow: hidden; }
 .pane-r          { border-right: 1px solid var(--border); }
 
+/* Drag handle on the left edge of a resizable right pane */
+.pane-resizer        { position: absolute; top: 0; bottom: 0; left: 0; width: 6px; cursor: col-resize; z-index: 5; touch-action: none; }
+.pane-resizer:hover,
+.pane-resizer.active { background: var(--accent); opacity: .5; }
+
 /* ── Pane sections ── */
 .p-sec {
   padding: 20px 24px;

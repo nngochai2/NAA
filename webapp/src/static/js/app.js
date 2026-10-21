@@ -64,6 +64,8 @@ function vaultApp() {
       credOk:     false,
       busy:       '',       // server name currently acting, or 'all'
       error:      '',
+      paneW:      (() => { try { return Number(localStorage.getItem('mcpPaneW')) || 300; } catch (_) { return 300; } })(),   // right (detail) pane width, px
+      resizing:   false,
       _pollTimer: null,
     },
 
@@ -761,6 +763,28 @@ function vaultApp() {
           this.mcp.servers = d.servers;
         }
       } catch (_) {}
+    },
+
+    mcpResizeStart(e) {
+      e.preventDefault();
+      this.mcp.resizing = true;
+      const move = ev => {
+        const max = Math.min(720, window.innerWidth - 320);
+        this.mcp.paneW = Math.round(Math.max(280, Math.min(max, window.innerWidth - ev.clientX)));
+      };
+      const stop = () => {
+        this.mcp.resizing = false;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+        try { localStorage.setItem('mcpPaneW', String(this.mcp.paneW)); } catch (_) {}
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', stop);
+    },
+
+    mcpResizeReset() {
+      this.mcp.paneW = 300;
+      try { localStorage.removeItem('mcpPaneW'); } catch (_) {}
     },
 
     mcpSelect(name) {

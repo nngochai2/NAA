@@ -885,7 +885,7 @@
      ══════════════════════════════════════════════════════════════ -->
 <div class="screen" x-show="screen === 'mcp'" style="display:none"
      x-init="$watch('screen', v => { if (v==='mcp') mcpStartPolling(); else mcpStopPolling(); })">
-  <div class="split split-dashboard">
+  <div class="split" :style="`grid-template-columns: minmax(0, 1fr) ${mcp.paneW}px; ${mcp.resizing ? 'user-select:none;cursor:col-resize' : ''}`">
 
     <!-- LEFT: server list + bulk actions -->
     <div class="pane pane-r">
@@ -947,8 +947,10 @@
 
     </div><!-- /left pane -->
 
-    <!-- RIGHT: selected server detail -->
-    <div class="pane">
+    <!-- RIGHT: selected server detail (drag the left edge to resize, double-click to reset) -->
+    <div class="pane" style="position:relative">
+      <div class="pane-resizer" :class="mcp.resizing ? 'active' : ''" title="Drag to resize · double-click to reset"
+           @pointerdown="mcpResizeStart($event)" @dblclick="mcpResizeReset()"></div>
 
       <!-- Detail when selected -->
       <template x-if="mcpSelectedServer()">
@@ -1032,13 +1034,27 @@
                 <div style="display:flex;align-items:center;gap:8px">
                   <span style="font-size:9px;color:var(--text3);width:80px;flex-shrink:0"
                         x-text="f.label.toUpperCase()"></span>
-                  <input style="flex:1" class="mono-input"
+                  <input style="flex:1;min-width:0" class="mono-input"
                          :type="f.secret && !mcp.credShow[mcp.selected + '.' + f.key] ? 'password' : 'text'"
                          :placeholder="f.is_set ? '••••••• (set)' : f.placeholder"
                          x-model="mcp.credEdit[mcp.selected + '.' + f.key]" />
-                  <button x-show="f.secret" class="btn btn-ghost btn-sm" style="flex-shrink:0;width:64px"
-                          @click="mcp.credShow[mcp.selected + '.' + f.key] = !mcp.credShow[mcp.selected + '.' + f.key]"
-                          x-text="mcp.credShow[mcp.selected + '.' + f.key] ? 'HIDE' : 'UNHIDE'"></button>
+                  <button class="btn btn-ghost btn-sm" style="flex-shrink:0;width:28px;padding:0;display:flex;align-items:center;justify-content:center"
+                          :style="f.secret ? '' : 'visibility:hidden'"
+                          :title="mcp.credShow[mcp.selected + '.' + f.key] ? 'Hide' : 'Unhide'"
+                          :aria-label="mcp.credShow[mcp.selected + '.' + f.key] ? 'Hide' : 'Unhide'"
+                          @click="mcp.credShow[mcp.selected + '.' + f.key] = !mcp.credShow[mcp.selected + '.' + f.key]">
+                    <!-- eye: value hidden, click to show -->
+                    <svg x-show="!mcp.credShow[mcp.selected + '.' + f.key]" width="14" height="14" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <!-- eye-off: value shown, click to hide -->
+                    <svg x-show="mcp.credShow[mcp.selected + '.' + f.key]" width="14" height="14" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  </button>
                   <span style="font-size:9px;width:12px;flex-shrink:0"
                         :style="f.is_set ? 'color:var(--accent)' : 'color:var(--text3)'"
                         x-text="f.is_set ? '✓' : '○'"></span>
