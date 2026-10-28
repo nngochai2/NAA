@@ -885,7 +885,7 @@
      ══════════════════════════════════════════════════════════════ -->
 <div class="screen" x-show="screen === 'mcp'" style="display:none"
      x-init="$watch('screen', v => { if (v==='mcp') mcpStartPolling(); else mcpStopPolling(); })">
-  <div class="split" :style="`grid-template-columns: minmax(0, 1fr) ${mcp.paneW}px; ${mcp.resizing ? 'user-select:none;cursor:col-resize' : ''}`">
+  <div class="split" :style="`grid-template-columns: minmax(0, 1fr) ${mcp.paneW || 300}px; ${mcp.resizing ? 'user-select:none;cursor:col-resize' : ''}`">
 
     <!-- LEFT: server list + bulk actions -->
     <div class="pane pane-r">
