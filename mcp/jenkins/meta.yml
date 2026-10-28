@@ -1,0 +1,20 @@
+id: jenkins
+label: "Jenkins MCP"
+cmd: ["python", "-m", "jenkins_mcp"]
+host: "0.0.0.0"
+port: 8006
+env_file: .env
+
+credentials:
+  - key: JENKINS_URL
+    label: "Jenkins Base URL"
+    secret: false
+    placeholder: "https://ci.example.com/jenkins"
+  - key: JENKINS_SSL_VERIFY
+    label: "SSL Verify"
+    secret: false
+    placeholder: "true"
+  - key: JENKINS_BLOCK_TOOLS
+    label: "Blocked Tools (comma-separated)"
+    secret: false
+    placeholder: "jenkins_delete_job,jenkins_safe_restart"
