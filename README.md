@@ -37,7 +37,8 @@ Your project docs              AI assistant (Claude, Cursor, …)
                            ├──► mcp/codegraph/:8001    (code structure)
                            ├──► mcp/oracle/:8003       (DB schema)
                            ├──► mcp/azure_devops/:8004 (ADO work items)
-                           └──► mcp/jira/:8005         (Jira issues)
+                           ├──► mcp/jira/:8005         (Jira issues)
+                           └──► mcp/jenkins/:8006      (Jenkins jobs & builds)
                                          │
                                     Neo4j graphs
 ```
@@ -102,7 +103,10 @@ NAA/
 │   ├── azure_devops/      # Azure DevOps MCP (port 8004)
 │   │   └── meta.yml
 │   │
-│   └── jira/              # Jira MCP (port 8005)
+│   ├── jira/              # Jira MCP (port 8005)
+│   │   └── meta.yml
+│   │
+│   └── jenkins/           # Jenkins MCP (port 8006)
 │       └── meta.yml
 │
 ├── docker/
@@ -233,6 +237,10 @@ Copy-Item mcp\azure_devops\.env.example mcp\azure_devops\.env
 Copy-Item mcp\jira\.env.example mcp\jira\.env
 # Edit mcp\jira\.env: set JIRA_URL, JIRA_PROJECT_KEY, JIRA_SSL_VERIFY
 # No shared PAT here — each team member supplies their own PAT via their own mcp.json (see below)
+
+# Jenkins MCP
+Copy-Item mcp\jenkins\.env.example mcp\jenkins\.env
+# Edit mcp\jenkins\.env: set JENKINS_URL (credentials are per-member, via mcp.json)
 ```
 
 ---
@@ -285,12 +293,21 @@ Add this to your Claude MCP configuration (usually `~/.claude/mcp.json` or via t
       "headers": {
         "Authorization": "Bearer <your-own-jira-pat>"
       }
+    },
+    "naa-jenkins": {
+      "url": "http://localhost:8006/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Basic <base64 of your-username:your-api-token>"
+      }
     }
   }
 }
 ```
 
 The Jira MCP is the one exception to "just paste the URL": it authenticates each connecting member with *their own* Jira PAT rather than a shared server-side credential (see `docs/adr/0006-jira-mcp-per-member-connection-scoped-pat.md`). Every team member using this server puts their own PAT in their own `mcp.json`'s `Authorization` header, exactly as shown above — a connection with a missing or malformed header is rejected outright.
+
+The Jenkins MCP works the same way: each member sends their own Jenkins credentials in the `Authorization` header — `Basic <base64(username:api_token)>` (generate the token under *Jenkins → your user → Security → API Token*; PowerShell: `[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("user:token"))`) or `Bearer <token>` if your Jenkins has a bearer-token plugin.
 
 ### Cursor
 
@@ -450,6 +467,28 @@ Unlike every other MCP in this repo, there is no shared PAT in `.env`. Each team
 
 ---
 
+### Jenkins MCP — port 8006
+
+Exposes a Jenkins controller's jobs, builds, queue, nodes and views (38 tools, modelled on [`kud/mcp-jenkins`](https://github.com/kud/mcp-jenkins) but Python/SSE). One instance is bound to one Jenkins URL. Job names use `folder/sub/job` for jobs inside folders; `build_number` defaults to the last build.
+
+| Group | Tools |
+|---|---|
+| Jobs | `jenkins_list_jobs`, `jenkins_search_jobs`, `jenkins_get_job_status`, `jenkins_get_job_parameters`, `jenkins_enable_job`, `jenkins_disable_job`, `jenkins_delete_job`, `jenkins_get_job_config`, `jenkins_create_job`, `jenkins_update_job_config`, `jenkins_rename_job`, `jenkins_copy_job` |
+| Builds | `jenkins_get_build_status`, `jenkins_get_recent_builds`, `jenkins_trigger_build`, `jenkins_stop_build`, `jenkins_delete_build`, `jenkins_replay_build`, `jenkins_get_console_log` (tail, default 200 lines), `jenkins_get_build_changes`, `jenkins_get_pipeline_stages` |
+| Tests & artifacts | `jenkins_get_test_results` (failures only), `jenkins_list_artifacts`, `jenkins_get_artifact` (text only, size-capped) |
+| Queue | `jenkins_get_queue`, `jenkins_cancel_queue` |
+| Nodes & system | `jenkins_list_nodes`, `jenkins_get_node`, `jenkins_toggle_node_offline`, `jenkins_get_system_info`, `jenkins_get_version`, `jenkins_get_plugins`, `jenkins_quiet_down`, `jenkins_cancel_quiet_down` |
+| Views | `jenkins_list_views`, `jenkins_get_view` |
+| Instances & admin | `jenkins_list_instances`, `jenkins_safe_restart` |
+
+**Required (`mcp/jenkins/.env`):** `JENKINS_URL` (include any context path, e.g. `https://ci.example.com/jenkins`)
+
+Optional: `JENKINS_SSL_VERIFY` (default `true`), `JENKINS_TIMEOUT` seconds (default `30`), `JENKINS_ALLOW_TOOLS` / `JENKINS_BLOCK_TOOLS` — comma-separated tool names; the allow list wins when set. Because this MCP ships the full destructive surface, consider `JENKINS_BLOCK_TOOLS=jenkins_delete_job,jenkins_delete_build,jenkins_safe_restart` on shared deployments.
+
+Like the Jira MCP, there is no shared credential in `.env`: each member's own `Authorization` header (see "Connecting an AI Assistant") is forwarded to Jenkins, so actions run — and are audited — as that member, under their real Jenkins permissions. A connection without a `Basic`/`Bearer` header is rejected with HTTP 401. CSRF crumbs are fetched automatically for write calls.
+
+---
+
 ## Adding a New MCP Server
 
 Create a directory under `mcp/` for your server, then add a `meta.yml`:
@@ -501,6 +540,7 @@ Each module has its own `.env` (gitignored). Copy `.env.example` → `.env` in e
 | Oracle MCP | `mcp/oracle/.env` | Oracle connection vars — see Oracle MCP section above |
 | Azure DevOps MCP | `mcp/azure_devops/.env` | `ADO_BASE_URL`, `ADO_PROJECT`, `ADO_USERNAME`, `ADO_PASSWORD` — see Azure DevOps MCP section above |
 | Jira MCP | `mcp/jira/.env` | `JIRA_URL`, `JIRA_PROJECT_KEY`, `JIRA_SSL_VERIFY` — PAT is per-member via `mcp.json`, see Jira MCP section above |
+| Jenkins MCP | `mcp/jenkins/.env` | `JENKINS_URL`, `JENKINS_SSL_VERIFY`, tool allow/block lists — credentials are per-member via `mcp.json`, see Jenkins MCP section above |
 | Pipeline | `pipeline/.env` | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` |
 
 Secrets (passwords, tokens) go in `.env` only — never in `config/settings.yml` or `mcp_state.json`.
@@ -537,6 +577,7 @@ mcp_servers:
 | Oracle MCP | 8003 |
 | Azure DevOps MCP | 8004 |
 | Jira MCP | 8005 |
+| Jenkins MCP | 8006 |
 | Docgraph Neo4j — Bolt | 7687 |
 | Docgraph Neo4j — Browser | 7474 |
 | Codegraph Neo4j — Bolt | 7688 |
