@@ -1,6 +1,8 @@
 """Jira REST API v2 client (Data Center / Server, not Cloud)."""
 from __future__ import annotations
 
+from urllib.parse import quote
+
 import httpx
 
 
@@ -45,6 +47,38 @@ class JiraClient:
     def _raise_for_status(self, resp: httpx.Response) -> None:
         if resp.status_code >= 400:
             raise JiraApiError(resp.status_code, _extract_error_message(resp))
+
+    def get_attachment_meta(self, attachment_id: str) -> dict:
+        resp = self._http.get(f"/rest/api/2/attachment/{quote(str(attachment_id), safe='')}")
+        self._raise_for_status(resp)
+        return resp.json()
+
+    def download_attachment(self, meta: dict, max_bytes: int, truncate: bool = False) -> bytes:
+        """Download an attachment's bytes. Past `max_bytes` it raises a 413 JiraApiError,
+        or with `truncate=True` stops quietly and returns the first `max_bytes`.
+
+        The path is built from the attachment id + filename (Jira DC's canonical
+        /secure/attachment route) rather than trusting the `content` URL in the
+        metadata, so the bearer token is only ever sent to the configured Jira host.
+        """
+        path = f"/secure/attachment/{quote(str(meta['id']), safe='')}/{quote(meta['filename'], safe='')}"
+        with self._http.stream("GET", path, headers={"Accept": "*/*"}) as resp:
+            if resp.status_code >= 300:
+                resp.read()
+                if resp.status_code >= 400:
+                    self._raise_for_status(resp)
+                raise JiraApiError(resp.status_code, "Unexpected redirect while downloading attachment")
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in resp.iter_bytes():
+                total += len(chunk)
+                if total > max_bytes:
+                    if not truncate:
+                        raise JiraApiError(413, f"Attachment exceeds the {max_bytes}-byte limit")
+                    chunks.append(chunk[: len(chunk) - (total - max_bytes)])
+                    break
+                chunks.append(chunk)
+        return b"".join(chunks)
 
     def get_issue(self, issue_key: str) -> dict:
         resp = self._http.get(f"/rest/api/2/issue/{issue_key}")

@@ -1,4 +1,4 @@
-# NAA — Knowledge Graph Control Plane
+# NAA - Knowledge Graph Control Plane
 
 NAA is a self-hosted toolkit for teams maintaining **legacy codebases**. It turns scattered project knowledge — architecture notes, compliance rules, API contracts, incident history — into a queryable Neo4j knowledge graph and exposes it to AI coding assistants via the **Model Context Protocol (MCP)**.
 

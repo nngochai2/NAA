@@ -13,21 +13,27 @@ from starlette.routing import Mount, Route
 from .auth import MissingCredentialsError, resolve_client_from_headers
 from .client import JiraClient
 from .config import get_config
+from .tools.attachments import ATTACHMENT_TOOLS, handle_attachment_tool
 from .tools.issues import ISSUE_TOOLS, handle_issue_tool
 
 server = Server("jira-mcp")
 
 _current_client: ContextVar[JiraClient] = ContextVar("_current_client")
 
+_ATTACHMENT_TOOL_NAMES = {tool.name for tool in ATTACHMENT_TOOLS}
+
 
 @server.list_tools()
 async def list_tools():
-    return ISSUE_TOOLS
+    return [*ISSUE_TOOLS, *ATTACHMENT_TOOLS]
 
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict):
-    return handle_issue_tool(name, arguments, client=_current_client.get(), project_key=get_config().project_key)
+    client = _current_client.get()
+    if name in _ATTACHMENT_TOOL_NAMES:
+        return handle_attachment_tool(name, arguments, client=client)
+    return handle_issue_tool(name, arguments, client=client, project_key=get_config().project_key)
 
 
 def create_starlette_app() -> Starlette:
