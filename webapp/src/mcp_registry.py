@@ -47,10 +47,8 @@ def _load(path: Path) -> dict[str, Any] | None:
 
 
 def _meta_paths() -> list[Path]:
-    """Return all candidate meta.yml paths, root first then subdirectories."""
-    root = _MCP_ROOT / "meta.yml"
-    subs = sorted(_MCP_ROOT.glob("*/meta.yml"))
-    return [p for p in [root, *subs] if p.exists()]
+    """Return the meta.yml of every server directory under mcp/, sorted by path."""
+    return sorted(_MCP_ROOT.glob("*/meta.yml"))
 
 
 def discover_servers() -> dict[str, dict[str, Any]]:

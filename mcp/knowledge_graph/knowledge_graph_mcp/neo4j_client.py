@@ -1,21 +1,23 @@
 """
-Neo4j query helpers for the MCP server.
- 
+Neo4j query helpers for the Knowledge Graph MCP server.
+
 All queries use parameterised Cypher — no string interpolation of user input.
 The only exception is the variable-length path hop count, which is clamped
 to an integer in the range 1–3 before being embedded in the query string.
 """
- 
+
+import json
+
 from neo4j import GraphDatabase
- 
- 
+
+
 class Neo4jClient:
     def __init__(self, uri: str, user: str, password: str):
         self._driver = GraphDatabase.driver(uri, auth=(user, password))
- 
+
     def close(self) -> None:
         self._driver.close()
- 
+
     def verify(self) -> bool:
         try:
             with self._driver.session() as s:
@@ -23,9 +25,9 @@ class Neo4jClient:
             return True
         except Exception:
             return False
- 
+
     # ── Tools ────────────────────────────────────────────────────────────────
- 
+
     def search_notes(self, query: str, limit: int = 10) -> list[dict]:
         """Full-text search on note title/subfolder AND BR br_id/title/uc_id."""
         cypher = """
@@ -63,7 +65,7 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, kw=query, limit=limit)]
- 
+
     def get_note(self, title: str) -> dict | None:
         """Full details for one note plus its outgoing links."""
         cypher = """
@@ -88,7 +90,7 @@ class Neo4jClient:
         with self._driver.session() as s:
             result = s.run(cypher, title=title).single()
             return dict(result) if result else None
- 
+
     def get_related_notes(self, title: str, hops: int = 1) -> list[dict]:
         """Traverse relationships outward from a note. hops is clamped 1–3."""
         hops = min(max(int(hops), 1), 3)
@@ -103,7 +105,7 @@ class Neo4jClient:
         )
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, title=title)]
- 
+
     def get_notes_by_type(self, note_type: str, limit: int = 20) -> list[dict]:
         """List notes filtered by type, sorted by backlink count."""
         cypher = """
@@ -117,8 +119,10 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, type=note_type, limit=limit)]
- 
-    def get_tagged_notes(self, tag: str, note_type: str | None = None, limit: int = 50) -> list[dict]:
+
+    def get_tagged_notes(
+        self, tag: str, note_type: str | None = None, limit: int = 50
+    ) -> list[dict]:
         """
         Return notes that are tagged with (or linked to) the given tag/note title.
         Optionally filter by note type.
@@ -150,7 +154,7 @@ class Neo4jClient:
             """
             with self._driver.session() as s:
                 return [dict(r) for r in s.run(cypher, tag=tag, limit=limit)]
- 
+
     def get_backlinks(self, title: str) -> list[dict]:
         """All notes that have an outgoing edge pointing to the given note."""
         cypher = """
@@ -163,7 +167,7 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, title=title)]
- 
+
     def get_stats(self) -> dict:
         """Aggregate counts for the whole graph."""
         cypher = """
@@ -175,7 +179,7 @@ class Neo4jClient:
         with self._driver.session() as s:
             result = s.run(cypher).single()
             return dict(result) if result else {}
- 
+
     def get_type_counts(self) -> list[dict]:
         cypher = """
             MATCH (n:Note)
@@ -184,7 +188,7 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher)]
- 
+
     def find_coverage(self, concepts: list[str]) -> list[dict]:
         """
         For each concept string, find the top-3 most relevant existing notes
@@ -222,24 +226,24 @@ class Neo4jClient:
                     "existing": matches,
                 })
         return results
- 
+
     def get_all_note_titles(self) -> list[str]:
         """Return every note title — used by the agent to validate [[WikiLinks]]."""
         cypher = "MATCH (n:Note) RETURN n.title AS title ORDER BY n.title"
         with self._driver.session() as s:
             return [r["title"] for r in s.run(cypher)]
- 
+
     # Valid relationship types — whitelist used before embedding in Cypher
     _VALID_REL_TYPES = frozenset({
         "LINKS_TO", "TAGGED_WITH", "EXTENDS", "USES",
         "IMPLEMENTS", "DEPENDS_ON", "RELATES_TO",
     })
- 
+
     def upsert_note_direct(self, props: dict, wikilinks: list[dict]) -> None:
         """
         Insert or update a Note node and its outgoing relationships directly —
         bypasses the build pipeline. Called by commit_approved_notes().
- 
+
         props keys: node_id, title, type, subfolder, status, created_at,
                     path, word_count, content_hash, body, summary
         wikilinks:  list of {target, alias, context, relationship}
@@ -282,7 +286,7 @@ class Neo4jClient:
                     context=link.get("context", ""),
                 )
             s.run(backlink_cypher, src=props["title"])
- 
+
     def get_requirements(self, flow_name: str | None = None) -> list[dict]:
         """Return all BR nodes, optionally filtered by flow_name.
         Returns summary fields only; use get_requirement_detail() for full body.
@@ -373,3 +377,20 @@ class Neo4jClient:
         """
         with self._driver.session() as s:
             return [dict(r) for r in s.run(cypher, uc_id=uc_id, flow_name=flow_name)]
+
+    def set_br_categories(
+        self, br_id: str, uc_id: str, doc_type: str, flow_name: str, categories: list[str]
+    ) -> bool:
+        """Overwrite confirmed_categories on a BR. Returns False if no BR matched."""
+        cypher = """
+            MATCH (b:BR {br_id: $br_id, uc_id: $uc_id, doc_type: $doc_type, flow_name: $flow_name})
+            SET b.confirmed_categories = $cats
+            RETURN b.id AS id
+        """
+        with self._driver.session() as s:
+            row = s.run(
+                cypher,
+                br_id=br_id, uc_id=uc_id, doc_type=doc_type, flow_name=flow_name,
+                cats=json.dumps(categories),
+            ).single()
+            return row is not None
