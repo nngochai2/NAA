@@ -1,30 +1,24 @@
-import os
-import logging
-import atexit
+"""Code Graph MCP server — registers the tools on a FastMCP instance (SSE transport).
+
+Tool logic lives in codegraph_mcp.tools; this module only declares the MCP
+surface (names, signatures, descriptions).
+"""
+from __future__ import annotations
+
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-import graph_client
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-from tools.dependencies import get_class_dependencies, get_transitive_impact
-from tools.callers import find_method_callers
-from tools.fields import get_field_impact
-from tools.interfaces import get_interface_implementations
-from tools.layers import get_class_layer_path
-from tools.overview import get_class_overview
-from graph_client import run_query
-from cypher import queries
+from . import graph_client
+from .config import get_config
+from .cypher import queries
+from .tools.callers import find_method_callers
+from .tools.dependencies import get_class_dependencies, get_transitive_impact
+from .tools.fields import get_field_impact
+from .tools.interfaces import get_interface_implementations
+from .tools.layers import get_class_layer_path
+from .tools.overview import get_class_overview
 
-mcp = FastMCP(
-    "codegraph",
-    host=os.getenv("MCP_HOST", "0.0.0.0"),
-    port=int(os.getenv("MCP_PORT", "8001")),
-)
-
-atexit.register(graph_client.close)
+mcp = FastMCP("codegraph", host=get_config().host, port=get_config().port)
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -35,7 +29,7 @@ def tool_search_types(class_name: str) -> str:
     For example, pass 'InvoiceEngine' to find 'InvoiceEngineBizService'.
     Returns all matching fully-qualified names.
     """
-    rows = run_query(queries.CLASS_SEARCH, {"className": class_name})
+    rows = graph_client.run_query(queries.CLASS_SEARCH, {"className": class_name})
     if not rows:
         return f"No types found matching '{class_name}'."
     lines = [f"Types matching '{class_name}' ({len(rows)} found):\n"]
@@ -129,6 +123,3 @@ def tool_get_class_overview(class_name: str) -> str:
     """
     return get_class_overview(class_name)
 
-
-if __name__ == "__main__":
-    mcp.run(transport="sse")

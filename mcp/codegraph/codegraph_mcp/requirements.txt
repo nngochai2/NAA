@@ -1,5 +1,0 @@
-mcp[cli]
-neo4j
-python-dotenv
-starlette
-uvicorn
