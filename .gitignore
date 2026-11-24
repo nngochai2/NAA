@@ -220,3 +220,6 @@ __marimo__/
 # NAA webapp runtime state (contains password hash + session key)
 webapp/auth.json
 webapp/mcp_state.json
+
+# Knowledge Graph MCP review queue (runtime state)
+mcp/knowledge_graph/staged_notes.json

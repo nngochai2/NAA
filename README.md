@@ -30,9 +30,9 @@ Your project docs              AI assistant (Claude, Cursor, …)
   (Markdown vault)                        │
        │                                  │ MCP (SSE)
        ▼                                  ▼
-   pipeline/          webapp:5000     mcp/:8000   mcp/git/:8002
-  build graph  ───►   Control UI  ──► Knowledge   Git issues
-                       (browser)      graph MCP   & PRs MCP
+   pipeline/          webapp:5000     mcp/knowledge_graph/:8000   mcp/git/:8002
+  build graph  ───►   Control UI  ──► Knowledge graph MCP         Git issues
+                       (browser)                                  & PRs MCP
                            │
                            ├──► mcp/codegraph/:8001    (code structure)
                            ├──► mcp/oracle/:8003       (DB schema)
@@ -88,8 +88,10 @@ NAA/
 │   └── requirements.txt
 │
 ├── mcp/                   # MCP servers — each is an independent process
-│   ├── meta.yml           # ← describes this server to the webapp
-│   ├── src/               # Knowledge-graph MCP (port 8000)
+│   ├── knowledge_graph/   # Knowledge-graph MCP (port 8000)
+│   │   ├── meta.yml       # ← describes this server to the webapp
+│   │   ├── knowledge_graph_mcp/   # the Python package (python -m knowledge_graph_mcp)
+│   │   └── tests/
 │   │
 │   ├── codegraph/         # Code-graph MCP (port 8001)
 │   │   └── meta.yml
@@ -341,7 +343,9 @@ Exposes the document graph built from your vault.
 | `reject_staged_note` | Discard a staged note |
 | `commit_approved_notes` | Write all approved staged notes to Neo4j |
 
-**Required credentials (`mcp/.env`):** `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `VAULT_ROOT`
+**Required credentials (`mcp/knowledge_graph/.env`):** `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `VAULT_ROOT`
+
+Optional: `STAGING_FILE` (where staged notes are persisted; default `mcp/knowledge_graph/staged_notes.json`).
 
 ---
 
@@ -534,7 +538,7 @@ Each module has its own `.env` (gitignored). Copy `.env.example` → `.env` in e
 | Module | `.env` location | Key variables |
 |---|---|---|
 | Webapp | `webapp/.env` | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` |
-| Knowledge-graph MCP | `mcp/.env` | Neo4j vars + `VAULT_ROOT`, `MCP_HOST`, `MCP_PORT` |
+| Knowledge-graph MCP | `mcp/knowledge_graph/.env` | Neo4j vars + `VAULT_ROOT`, `MCP_HOST`, `MCP_PORT` |
 | Code-graph MCP | `mcp/codegraph/.env` | `NEO4J_URI` (bolt:7688), `NEO4J_USER`, `NEO4J_PASSWORD` |
 | Git MCP | `mcp/git/.env` | `GIT_PROVIDER`, tokens — see Git MCP section above |
 | Oracle MCP | `mcp/oracle/.env` | Oracle connection vars — see Oracle MCP section above |
