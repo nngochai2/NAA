@@ -1,6 +1,6 @@
-from graph_client import run_query
-from cypher import queries
-from tools.resolver import resolve_class_name
+from .. import graph_client
+from ..cypher import queries
+from .resolver import resolve_class_name
 
 
 def get_class_overview(class_name: str) -> str:
@@ -8,19 +8,19 @@ def get_class_overview(class_name: str) -> str:
     if class_name is None:
         return message
 
-    type_rows = run_query(queries.CLASS_OVERVIEW_TYPE, {"className": class_name})
+    type_rows = graph_client.run_query(queries.CLASS_OVERVIEW_TYPE, {"className": class_name})
 
     if not type_rows:
         return f"Class '{class_name}' not found in the graph. Verify the class name (use simple name, not FQN)."
 
     t = type_rows[0]
-    kind_labels = [l for l in t["typeLabels"] if l not in ("Type",)]
+    kind_labels = [label for label in t["typeLabels"] if label != "Type"]
     kind = ", ".join(kind_labels) if kind_labels else "Type"
 
-    methods = run_query(queries.CLASS_OVERVIEW_METHODS, {"className": class_name})
-    fields = run_query(queries.CLASS_OVERVIEW_FIELDS, {"className": class_name})
-    implements = run_query(queries.CLASS_OVERVIEW_IMPLEMENTS, {"className": class_name})
-    extends = run_query(queries.CLASS_OVERVIEW_EXTENDS, {"className": class_name})
+    methods = graph_client.run_query(queries.CLASS_OVERVIEW_METHODS, {"className": class_name})
+    fields = graph_client.run_query(queries.CLASS_OVERVIEW_FIELDS, {"className": class_name})
+    implements = graph_client.run_query(queries.CLASS_OVERVIEW_IMPLEMENTS, {"className": class_name})
+    extends = graph_client.run_query(queries.CLASS_OVERVIEW_EXTENDS, {"className": class_name})
 
     lines = [
         f"Overview of {kind}: {t['fqn']}\n",

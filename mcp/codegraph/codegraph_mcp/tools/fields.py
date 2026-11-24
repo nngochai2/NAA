@@ -1,6 +1,6 @@
-from graph_client import run_query
-from cypher import queries
-from tools.resolver import resolve_class_name
+from .. import graph_client
+from ..cypher import queries
+from .resolver import resolve_class_name
 
 
 def get_field_impact(field_name: str, class_name: str) -> str:
@@ -8,7 +8,7 @@ def get_field_impact(field_name: str, class_name: str) -> str:
     if class_name is None:
         return message
 
-    rows = run_query(queries.FIELD_IMPACT, {"fieldName": field_name, "className": class_name})
+    rows = graph_client.run_query(queries.FIELD_IMPACT, {"fieldName": field_name, "className": class_name})
 
     if not rows:
         return (

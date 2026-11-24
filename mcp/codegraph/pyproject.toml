@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codegraph-mcp"
+version = "0.1.0"
+description = "MCP server exposing a jQAssistant Java code graph stored in Neo4j"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.2.0",
+    "neo4j>=5.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+codegraph-mcp = "codegraph_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["codegraph_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+# Tool output strings are long by nature; wrapping them hurts readability.
+per-file-ignores = { "codegraph_mcp/tools/*.py" = ["E501"], "codegraph_mcp/cypher/*.py" = ["E501"] }

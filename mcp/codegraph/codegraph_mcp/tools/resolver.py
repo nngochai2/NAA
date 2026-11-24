@@ -1,5 +1,5 @@
-from graph_client import run_query
-from cypher import queries
+from .. import graph_client
+from ..cypher import queries
 
 
 def resolve_class_name(class_name: str) -> tuple[str | None, str | None]:
@@ -10,7 +10,7 @@ def resolve_class_name(class_name: str) -> tuple[str | None, str | None]:
     Returns (None, message) when the name is ambiguous or not found — the caller
     should surface that message directly to the agent.
     """
-    candidates = run_query(queries.CLASS_SEARCH, {"className": class_name})
+    candidates = graph_client.run_query(queries.CLASS_SEARCH, {"className": class_name})
 
     exact = [r for r in candidates if r["name"] == class_name]
     if exact:

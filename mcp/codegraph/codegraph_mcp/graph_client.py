@@ -1,15 +1,13 @@
-import os
-import logging
-from neo4j import GraphDatabase
-from dotenv import load_dotenv
+"""Lazily-connected Neo4j driver shared by all tools."""
+from __future__ import annotations
 
-load_dotenv()
+import logging
+
+from neo4j import GraphDatabase
+
+from .config import get_config
 
 logger = logging.getLogger(__name__)
-
-_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-_USER = os.getenv("NEO4J_USER", "neo4j")
-_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 
 _driver = None
 
@@ -17,15 +15,21 @@ _driver = None
 def get_driver():
     global _driver
     if _driver is None:
-        auth = (_USER, _PASSWORD) if _PASSWORD else None
-        logger.info("Connecting to Neo4j at %s (auth=%s)", _URI, "credentials" if auth else "none")
+        cfg = get_config()
+        auth = (cfg.neo4j_user, cfg.neo4j_password) if cfg.neo4j_password else None
+        logger.info(
+            "Connecting to Neo4j at %s (auth=%s)", cfg.neo4j_uri, "credentials" if auth else "none"
+        )
+        driver = GraphDatabase.driver(cfg.neo4j_uri, auth=auth)
         try:
-            _driver = GraphDatabase.driver(_URI, auth=auth)
-            _driver.verify_connectivity()
-            logger.info("Neo4j connection established")
+            driver.verify_connectivity()
         except Exception as e:
-            logger.error("Failed to connect to Neo4j at %s: %s", _URI, e)
+            logger.error("Failed to connect to Neo4j at %s: %s", cfg.neo4j_uri, e)
+            driver.close()
             raise
+        logger.info("Neo4j connection established")
+        # Only cache a verified driver, so the next call retries after a failure.
+        _driver = driver
     return _driver
 
 

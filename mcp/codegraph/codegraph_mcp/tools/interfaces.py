@@ -1,6 +1,6 @@
-from graph_client import run_query
-from cypher import queries
-from tools.resolver import resolve_class_name
+from .. import graph_client
+from ..cypher import queries
+from .resolver import resolve_class_name
 
 
 def get_interface_implementations(interface_name: str) -> str:
@@ -8,7 +8,7 @@ def get_interface_implementations(interface_name: str) -> str:
     if interface_name is None:
         return message
 
-    rows = run_query(queries.INTERFACE_IMPLEMENTATIONS, {"interfaceName": interface_name})
+    rows = graph_client.run_query(queries.INTERFACE_IMPLEMENTATIONS, {"interfaceName": interface_name})
 
     if not rows:
         return f"No implementations found for interface '{interface_name}'. Verify the interface name exists in the graph."

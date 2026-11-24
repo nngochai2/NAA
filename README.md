@@ -92,7 +92,9 @@ NAA/
 │   ├── src/               # Knowledge-graph MCP (port 8000)
 │   │
 │   ├── codegraph/         # Code-graph MCP (port 8001)
-│   │   └── meta.yml
+│   │   ├── meta.yml
+│   │   ├── codegraph_mcp/ # python -m codegraph_mcp
+│   │   └── tests/
 │   │
 │   ├── git/               # Git MCP — GitLab or GitHub (port 8002)
 │   │   └── meta.yml
