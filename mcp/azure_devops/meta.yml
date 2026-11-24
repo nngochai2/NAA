@@ -1,6 +1,6 @@
 id: azure-devops
 label: "Azure DevOps MCP"
-cmd: ["python", "src/ado_mcp_server.py"]
+cmd: ["python", "-m", "ado_mcp"]
 host: "0.0.0.0"
 port: 8004
 env_file: .env

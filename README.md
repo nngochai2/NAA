@@ -106,7 +106,9 @@ NAA/
 │   │   └── tests/
 │   │
 │   ├── azure_devops/      # Azure DevOps MCP (port 8004)
-│   │   └── meta.yml
+│   │   ├── meta.yml
+│   │   ├── ado_mcp/       # python -m ado_mcp
+│   │   └── tests/
 │   │
 │   ├── jira/              # Jira MCP (port 8005)
 │   │   └── meta.yml
