@@ -100,7 +100,10 @@ NAA/
 │   │   └── meta.yml
 │   │
 │   ├── oracle/            # Oracle schema MCP (port 8003)
-│   │   └── meta.yml
+│   │   ├── meta.yml
+│   │   ├── oracle_mcp/    # python -m oracle_mcp
+│   │   ├── sql/           # read-only DB user setup
+│   │   └── tests/
 │   │
 │   ├── azure_devops/      # Azure DevOps MCP (port 8004)
 │   │   └── meta.yml
@@ -422,6 +425,24 @@ Introspects an Oracle database schema — tables, views, columns, PL/SQL procedu
 **Required credentials (`mcp/oracle/.env`):** `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE` (or `ORACLE_SID`), `ORACLE_USER`, `ORACLE_PASSWORD`
 
 Optional: `ORACLE_CLIENT_LIB_DIR` (path to Oracle Instant Client), `ALLOWED_SCHEMAS` (comma-separated list to restrict introspection scope).
+
+Create the read-only database user with `mcp/oracle/sql/db_setup.sql`.
+
+To run it as a local stdio process for a single developer instead of the shared SSE server, set `MCP_TRANSPORT=stdio` and point your editor at it, e.g. in VS Code's `.vscode/mcp.json`:
+
+```jsonc
+{
+  "servers": {
+    "oracle-schema": {
+      "type": "stdio",
+      "command": "<path-to-venv>/python",
+      "args": ["-m", "oracle_mcp"],
+      "cwd": "<repo>/mcp/oracle",
+      "env": { "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
 
 ---
 
