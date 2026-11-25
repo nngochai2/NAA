@@ -1,0 +1,18 @@
+# Shared ruff config for every Python component in the repo.
+# Keep the ruff version in sync with .pre-commit-config.yaml and the justfile.
+line-length = 100
+target-version = "py311"
+extend-exclude = [".claude", "docker"]
+
+# First-party package roots, so import sorting groups local imports correctly.
+src = ["mcp/*", "webapp", "pipeline/src"]
+
+[lint]
+select = ["E", "F", "I", "UP"]
+# The formatter owns line length; what's left over is long strings and comments.
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# These modules extend sys.path before importing pipeline/webapp code.
+"webapp/src/*.py" = ["E402"]
+"**/tests/conftest.py" = ["E402"]
