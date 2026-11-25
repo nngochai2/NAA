@@ -1,4 +1,5 @@
 """Oracle MCP configuration — all sourced from mcp/oracle/.env, no hard-coded credentials."""
+
 from __future__ import annotations
 
 import os
@@ -17,11 +18,11 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 class OracleConfig:
     host: str
     port: int
-    service: str          # preferred; e.g. "INVOICING"
-    sid: str              # fallback; e.g. "XE"
+    service: str  # preferred; e.g. "INVOICING"
+    sid: str  # fallback; e.g. "XE"
     user: str
     password: str
-    client_lib: str       # path to Instant Client; blank = auto-discover
+    client_lib: str  # path to Instant Client; blank = auto-discover
     default_schema: str
     max_rows: int
     # Schemas the MCP server is allowed to expose. Empty = all schemas
@@ -29,7 +30,7 @@ class OracleConfig:
     allowed_schemas: tuple[str, ...]
     # Set ENABLE_EXECUTE_QUERY=false to expose only the metadata tools.
     enable_execute_query: bool
-    mcp_transport: str    # sse (network — same subnet / team) | stdio (local)
+    mcp_transport: str  # sse (network — same subnet / team) | stdio (local)
     mcp_host: str
     mcp_port: int
 

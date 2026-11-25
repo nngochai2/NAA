@@ -1,4 +1,5 @@
 """Entry point for the Jenkins MCP server."""
+
 import os
 
 import uvicorn

@@ -3,6 +3,7 @@
 Notes are staged for human review, approved or rejected, and then committed:
 written into the vault and upserted directly into Neo4j.
 """
+
 from __future__ import annotations
 
 import re
@@ -57,8 +58,7 @@ def find_knowledge_gaps(concepts: str) -> str:
         for note in r["existing"]:
             summary = note["summary"][:80] if note.get("summary") else "no summary"
             lines.append(
-                f"    → '{note['title']}' [{note['type']}] "
-                f"{note['word_count']} words — {summary}"
+                f"    → '{note['title']}' [{note['type']}] {note['word_count']} words — {summary}"
             )
         if not r["existing"]:
             lines.append("    → (nothing found in graph)")
@@ -132,14 +132,14 @@ def stage_note(
     note_id = uuid.uuid4().hex[:8]
     staging = load_staging()
     staging["notes"][note_id] = {
-        "id":                  note_id,
-        "title":               title.strip(),
+        "id": note_id,
+        "title": title.strip(),
         "vault_relative_path": clean,
-        "note_type":           nt,
-        "content":             content,
-        "status":              "pending",
-        "reject_reason":       "",
-        "staged_at":           datetime.now().isoformat(timespec="seconds"),
+        "note_type": nt,
+        "content": content,
+        "status": "pending",
+        "reject_reason": "",
+        "staged_at": datetime.now().isoformat(timespec="seconds"),
     }
     save_staging(staging)
 
@@ -275,7 +275,7 @@ def commit_approved_notes() -> str:
         return "VAULT_ROOT is not configured. Add VAULT_ROOT to the MCP server .env file."
 
     staging = load_staging()
-    notes   = staging.get("notes", {})
+    notes = staging.get("notes", {})
 
     # Purge rejected notes regardless of whether anything is being committed
     rejected_ids = [nid for nid, n in list(notes.items()) if n["status"] == "rejected"]
@@ -287,9 +287,8 @@ def commit_approved_notes() -> str:
         if rejected_ids:
             save_staging(staging)
         pending = sum(1 for n in notes.values() if n["status"] == "pending")
-        return (
-            "No approved notes to commit."
-            + (f" {pending} note(s) still pending review." if pending else "")
+        return "No approved notes to commit." + (
+            f" {pending} note(s) still pending review." if pending else ""
         )
 
     committed, skipped, errors = [], [], []

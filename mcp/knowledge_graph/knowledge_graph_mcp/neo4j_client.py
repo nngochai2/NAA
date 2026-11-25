@@ -220,11 +220,13 @@ class Neo4jClient:
                     gap = "covered"
                 else:
                     gap = "partial"
-                results.append({
-                    "concept":  concept,
-                    "gap_type": gap,
-                    "existing": matches,
-                })
+                results.append(
+                    {
+                        "concept": concept,
+                        "gap_type": gap,
+                        "existing": matches,
+                    }
+                )
         return results
 
     def get_all_note_titles(self) -> list[str]:
@@ -234,10 +236,17 @@ class Neo4jClient:
             return [r["title"] for r in s.run(cypher)]
 
     # Valid relationship types — whitelist used before embedding in Cypher
-    _VALID_REL_TYPES = frozenset({
-        "LINKS_TO", "TAGGED_WITH", "EXTENDS", "USES",
-        "IMPLEMENTS", "DEPENDS_ON", "RELATES_TO",
-    })
+    _VALID_REL_TYPES = frozenset(
+        {
+            "LINKS_TO",
+            "TAGGED_WITH",
+            "EXTENDS",
+            "USES",
+            "IMPLEMENTS",
+            "DEPENDS_ON",
+            "RELATES_TO",
+        }
+    )
 
     def upsert_note_direct(self, props: dict, wikilinks: list[dict]) -> None:
         """
@@ -349,7 +358,10 @@ class Neo4jClient:
         with self._driver.session() as s:
             row = s.run(
                 cypher,
-                br_id=br_id, uc_id=uc_id, doc_type=doc_type, flow_name=flow_name,
+                br_id=br_id,
+                uc_id=uc_id,
+                doc_type=doc_type,
+                flow_name=flow_name,
             ).single()
             return dict(row) if row else None
 
@@ -390,7 +402,10 @@ class Neo4jClient:
         with self._driver.session() as s:
             row = s.run(
                 cypher,
-                br_id=br_id, uc_id=uc_id, doc_type=doc_type, flow_name=flow_name,
+                br_id=br_id,
+                uc_id=uc_id,
+                doc_type=doc_type,
+                flow_name=flow_name,
                 cats=json.dumps(categories),
             ).single()
             return row is not None

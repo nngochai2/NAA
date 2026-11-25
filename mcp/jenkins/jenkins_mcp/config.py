@@ -1,4 +1,5 @@
 """Jenkins MCP configuration — loaded once from environment."""
+
 from __future__ import annotations
 
 import os

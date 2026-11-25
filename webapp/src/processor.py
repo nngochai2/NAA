@@ -9,10 +9,10 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import AsyncGenerator
 
 # Ensure src/ is importable from ui subpackage
 _src = Path(__file__).parent.parent
@@ -26,46 +26,47 @@ _executor = ThreadPoolExecutor(max_workers=1)
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ── ProcessingJob ──────────────────────────────────────────────────────────────
 
+
 class ProcessingJob:
     def __init__(
         self,
-        job_id:          str,
-        selected_paths:  list[Path],
-        vault_root:      Path,
-        dry_run:         bool = False,
-        clear_graph:     bool = False,
-        neo4j_uri:       str | None = None,
-        neo4j_user:      str | None = None,
-        neo4j_password:  str | None = None,
+        job_id: str,
+        selected_paths: list[Path],
+        vault_root: Path,
+        dry_run: bool = False,
+        clear_graph: bool = False,
+        neo4j_uri: str | None = None,
+        neo4j_user: str | None = None,
+        neo4j_password: str | None = None,
     ) -> None:
-        self.job_id         = job_id
+        self.job_id = job_id
         self.selected_paths = selected_paths
-        self.vault_root     = vault_root
-        self.dry_run        = dry_run
-        self.clear_graph    = clear_graph
-        self.neo4j_uri      = neo4j_uri
-        self.neo4j_user     = neo4j_user
+        self.vault_root = vault_root
+        self.dry_run = dry_run
+        self.clear_graph = clear_graph
+        self.neo4j_uri = neo4j_uri
+        self.neo4j_user = neo4j_user
         self.neo4j_password = neo4j_password
-        self.status         = JobStatus.PENDING
-        self.created_at     = _now()
-        self.started_at:    str | None = None
-        self.completed_at:  str | None = None
+        self.status = JobStatus.PENDING
+        self.created_at = _now()
+        self.started_at: str | None = None
+        self.completed_at: str | None = None
         self.error_message: str | None = None
 
         self.documents_processed = 0
-        self.documents_failed    = 0
-        self.total_documents     = 0
-        self.entities_created    = 0
+        self.documents_failed = 0
+        self.total_documents = 0
+        self.entities_created = 0
         self.relationships_created = 0
         self.failed_documents: list[dict] = []
 
         # Thread-safe event queue; async generator drains it
-        self._q:      queue.Queue = queue.Queue()
+        self._q: queue.Queue = queue.Queue()
         self._cancel: threading.Event = threading.Event()
 
     def emit(self, event: dict) -> None:
@@ -88,9 +89,7 @@ class ProcessingJob:
 
         while True:
             try:
-                event = await loop.run_in_executor(
-                    None, lambda: self._q.get(timeout=5.0)
-                )
+                event = await loop.run_in_executor(None, lambda: self._q.get(timeout=5.0))
                 event_type = event.get("event_type", "message")
                 yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
                 if event_type in terminal:
@@ -118,12 +117,13 @@ class ProcessingJob:
 
 # ── Processing logic (runs in thread) ─────────────────────────────────────────
 
-def _run(job: ProcessingJob) -> None:
-    from parser import parse_header, parse_note, resolve_backlinks
 
-    job.status     = JobStatus.IN_PROGRESS
+def _run(job: ProcessingJob) -> None:
+    from parser import parse_note, resolve_backlinks
+
+    job.status = JobStatus.IN_PROGRESS
     job.started_at = _now()
-    start_time     = time.monotonic()
+    start_time = time.monotonic()
 
     try:
         # 1. Enumerate all .md files across selected folders
@@ -136,13 +136,15 @@ def _run(job: ProcessingJob) -> None:
                     all_files.append(md)
 
         job.total_documents = len(all_files)
-        job.emit({
-            "event_type":       "processing_started",
-            "job_id":           job.job_id,
-            "timestamp":        _now(),
-            "total_documents":  job.total_documents,
-            "dry_run":          job.dry_run,
-        })
+        job.emit(
+            {
+                "event_type": "processing_started",
+                "job_id": job.job_id,
+                "timestamp": _now(),
+                "total_documents": job.total_documents,
+                "dry_run": job.dry_run,
+            }
+        )
 
         notes = []
         current_folder: str | None = None
@@ -151,25 +153,29 @@ def _run(job: ProcessingJob) -> None:
         for file_path in all_files:
             if job.is_cancelled():
                 job.status = JobStatus.CANCELLED
-                job.emit({
-                    "event_type":          "processing_cancelled",
-                    "job_id":              job.job_id,
-                    "timestamp":           _now(),
-                    "status":              "cancelled",
-                    "documents_processed": job.documents_processed,
-                    "documents_failed":    job.documents_failed,
-                    "message":             "Processing cancelled by user",
-                })
+                job.emit(
+                    {
+                        "event_type": "processing_cancelled",
+                        "job_id": job.job_id,
+                        "timestamp": _now(),
+                        "status": "cancelled",
+                        "documents_processed": job.documents_processed,
+                        "documents_failed": job.documents_failed,
+                        "message": "Processing cancelled by user",
+                    }
+                )
                 return
 
             folder_name = str(file_path.parent.relative_to(job.vault_root)).replace("\\", "/")
             if folder_name != current_folder:
                 current_folder = folder_name
-                job.emit({
-                    "event_type":      "folder_started",
-                    "timestamp":       _now(),
-                    "current_folder":  current_folder,
-                })
+                job.emit(
+                    {
+                        "event_type": "folder_started",
+                        "timestamp": _now(),
+                        "current_folder": current_folder,
+                    }
+                )
 
             try:
                 folder_hint = file_path.parent.name
@@ -178,43 +184,48 @@ def _run(job: ProcessingJob) -> None:
                 job.documents_processed += 1
 
                 elapsed = time.monotonic() - start_time
-                rate    = job.documents_processed / elapsed if elapsed > 0 else 0
+                rate = job.documents_processed / elapsed if elapsed > 0 else 0
                 remaining = (
-                    (job.total_documents - job.documents_processed) / rate
-                    if rate > 0 else 0
+                    (job.total_documents - job.documents_processed) / rate if rate > 0 else 0
                 )
 
-                job.emit({
-                    "event_type":                    "document_processed",
-                    "timestamp":                     _now(),
-                    "document":                      file_path.name,
-                    "relative_path":                 folder_name + "/" + file_path.name,
-                    "documents_processed_so_far":    job.documents_processed,
-                    "documents_failed_so_far":       job.documents_failed,
-                    "total_documents":               job.total_documents,
-                    "processing_rate_docs_per_sec":  round(rate, 2),
-                    "estimated_time_remaining_seconds": round(remaining),
-                    "entities_created":              job.entities_created,
-                    "relationships_created":         job.relationships_created,
-                })
+                job.emit(
+                    {
+                        "event_type": "document_processed",
+                        "timestamp": _now(),
+                        "document": file_path.name,
+                        "relative_path": folder_name + "/" + file_path.name,
+                        "documents_processed_so_far": job.documents_processed,
+                        "documents_failed_so_far": job.documents_failed,
+                        "total_documents": job.total_documents,
+                        "processing_rate_docs_per_sec": round(rate, 2),
+                        "estimated_time_remaining_seconds": round(remaining),
+                        "entities_created": job.entities_created,
+                        "relationships_created": job.relationships_created,
+                    }
+                )
 
             except Exception as exc:
                 job.documents_failed += 1
-                job.failed_documents.append({
-                    "filename":    file_path.name,
-                    "error":       str(exc),
-                    "error_code":  "PARSE_ERROR",
-                })
-                job.emit({
-                    "event_type":                 "processing_error",
-                    "timestamp":                  _now(),
-                    "error_code":                 "PARSE_ERROR",
-                    "error_message":              str(exc),
-                    "document":                   file_path.name,
-                    "relative_path":              folder_name + "/" + file_path.name,
-                    "documents_processed_so_far": job.documents_processed,
-                    "documents_failed_so_far":    job.documents_failed,
-                })
+                job.failed_documents.append(
+                    {
+                        "filename": file_path.name,
+                        "error": str(exc),
+                        "error_code": "PARSE_ERROR",
+                    }
+                )
+                job.emit(
+                    {
+                        "event_type": "processing_error",
+                        "timestamp": _now(),
+                        "error_code": "PARSE_ERROR",
+                        "error_message": str(exc),
+                        "document": file_path.name,
+                        "relative_path": folder_name + "/" + file_path.name,
+                        "documents_processed_so_far": job.documents_processed,
+                        "documents_failed_so_far": job.documents_failed,
+                    }
+                )
 
         # 3. Write to Neo4j (unless dry run)
         if not job.dry_run and notes:
@@ -223,62 +234,71 @@ def _run(job: ProcessingJob) -> None:
             from config import BATCH_SIZE, NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
             from graph import GraphBuilder
 
-            uri      = job.neo4j_uri      or NEO4J_URI
-            user     = job.neo4j_user     or NEO4J_USER
+            uri = job.neo4j_uri or NEO4J_URI
+            user = job.neo4j_user or NEO4J_USER
             password = job.neo4j_password or NEO4J_PASSWORD
             db = GraphBuilder(uri, user, password)
             try:
                 if job.clear_graph:
-                    job.emit({
-                        "event_type": "graph_clearing",
-                        "job_id":     job.job_id,
-                        "timestamp":  _now(),
-                    })
+                    job.emit(
+                        {
+                            "event_type": "graph_clearing",
+                            "job_id": job.job_id,
+                            "timestamp": _now(),
+                        }
+                    )
                     db.clear_graph()
                 db.create_constraints()
                 for i in range(0, len(notes), BATCH_SIZE):
                     db.upsert_notes(notes[i : i + BATCH_SIZE])
                 db.upsert_relationships(notes)
                 stats = db.get_stats()
-                job.entities_created       = stats.get("nodes", 0)
-                job.relationships_created  = stats.get("relationships", 0)
+                job.entities_created = stats.get("nodes", 0)
+                job.relationships_created = stats.get("relationships", 0)
             finally:
                 db.close()
 
         elapsed = time.monotonic() - start_time
-        job.status       = JobStatus.COMPLETED
+        job.status = JobStatus.COMPLETED
         job.completed_at = _now()
 
-        job.emit({
-            "event_type":                 "processing_completed",
-            "job_id":                     job.job_id,
-            "timestamp":                  _now(),
-            "status":                     "completed",
-            "total_documents_processed":  job.documents_processed,
-            "total_documents_failed":     job.documents_failed,
-            "total_entities_created":     job.entities_created,
-            "total_relationships_created": job.relationships_created,
-            "duration_seconds":           round(elapsed),
-            "documents_per_second":       round(job.documents_processed / elapsed, 2) if elapsed > 0 else 0,
-            "failed_documents":           job.failed_documents,
-        })
+        job.emit(
+            {
+                "event_type": "processing_completed",
+                "job_id": job.job_id,
+                "timestamp": _now(),
+                "status": "completed",
+                "total_documents_processed": job.documents_processed,
+                "total_documents_failed": job.documents_failed,
+                "total_entities_created": job.entities_created,
+                "total_relationships_created": job.relationships_created,
+                "duration_seconds": round(elapsed),
+                "documents_per_second": round(job.documents_processed / elapsed, 2)
+                if elapsed > 0
+                else 0,
+                "failed_documents": job.failed_documents,
+            }
+        )
 
     except Exception as exc:
-        job.status        = JobStatus.FAILED
+        job.status = JobStatus.FAILED
         job.error_message = str(exc)
-        job.emit({
-            "event_type":                 "processing_failed",
-            "job_id":                     job.job_id,
-            "timestamp":                  _now(),
-            "status":                     "failed",
-            "error_code":                 "CRITICAL_ERROR",
-            "error_message":              str(exc),
-            "documents_processed_so_far": job.documents_processed,
-            "documents_failed_so_far":    job.documents_failed,
-        })
+        job.emit(
+            {
+                "event_type": "processing_failed",
+                "job_id": job.job_id,
+                "timestamp": _now(),
+                "status": "failed",
+                "error_code": "CRITICAL_ERROR",
+                "error_message": str(exc),
+                "documents_processed_so_far": job.documents_processed,
+                "documents_failed_so_far": job.documents_failed,
+            }
+        )
 
 
 # ── ProcessorService ──────────────────────────────────────────────────────────
+
 
 class ProcessorService:
     def __init__(self, tree: TreeBuilder) -> None:
@@ -295,19 +315,21 @@ class ProcessorService:
 
     def check_neo4j(
         self,
-        neo4j_uri:      str | None = None,
-        neo4j_user:     str | None = None,
+        neo4j_uri: str | None = None,
+        neo4j_user: str | None = None,
         neo4j_password: str | None = None,
     ) -> bool:
         try:
             import sys
+
             _src = Path(__file__).parent.parent
             if str(_src) not in sys.path:
                 sys.path.insert(0, str(_src))
             from config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
             from graph import GraphBuilder
-            uri      = neo4j_uri      or NEO4J_URI
-            user     = neo4j_user     or NEO4J_USER
+
+            uri = neo4j_uri or NEO4J_URI
+            user = neo4j_user or NEO4J_USER
             password = neo4j_password or NEO4J_PASSWORD
             db = GraphBuilder(uri, user, password)
             ok = db.verify_connection()
@@ -322,8 +344,8 @@ class ProcessorService:
         vault_root: Path,
         dry_run: bool = False,
         clear_graph: bool = False,
-        neo4j_uri:      str | None = None,
-        neo4j_user:     str | None = None,
+        neo4j_uri: str | None = None,
+        neo4j_user: str | None = None,
         neo4j_password: str | None = None,
     ) -> ProcessingJob:
         selected_paths = []
@@ -333,7 +355,7 @@ class ProcessorService:
                 selected_paths.append(p)
 
         job_id = str(uuid.uuid4())
-        job    = ProcessingJob(
+        job = ProcessingJob(
             job_id=job_id,
             selected_paths=selected_paths,
             vault_root=vault_root,
@@ -343,8 +365,8 @@ class ProcessorService:
             neo4j_user=neo4j_user,
             neo4j_password=neo4j_password,
         )
-        self._jobs[job_id]   = job
-        self._active_job_id  = job_id
+        self._jobs[job_id] = job
+        self._active_job_id = job_id
 
         _executor.submit(_run, job)
         return job

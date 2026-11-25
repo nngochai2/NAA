@@ -1,7 +1,8 @@
 """Per-connection Jira authentication — resolves a member's own PAT from request headers."""
+
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import httpx
 
@@ -26,5 +27,8 @@ def resolve_client_from_headers(
         raise MissingCredentialsError(_MISSING_CREDENTIALS_MESSAGE)
 
     return JiraClient(
-        base_url=base_config.url, token=token.strip(), ssl_verify=base_config.ssl_verify, transport=transport
+        base_url=base_config.url,
+        token=token.strip(),
+        ssl_verify=base_config.ssl_verify,
+        transport=transport,
     )

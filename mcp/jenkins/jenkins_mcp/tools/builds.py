@@ -1,4 +1,5 @@
 """Jenkins build tools."""
+
 from __future__ import annotations
 
 import html
@@ -31,7 +32,10 @@ def get_build_status(client, args):
 @tool(
     "jenkins_get_recent_builds",
     "List a job's most recent builds, newest first.",
-    {**JOB, "limit": {"type": "integer", "description": "Maximum builds to return.", "default": 10}},
+    {
+        **JOB,
+        "limit": {"type": "integer", "description": "Maximum builds to return.", "default": 10},
+    },
     ["job_name"],
     read_only=True,
 )
@@ -58,13 +62,17 @@ def trigger_build(client, args):
     path = job_path(args["job_name"])
     parameters = args.get("parameters")
     if parameters:
-        resp = client.post(f"{path}/buildWithParameters", data={k: str(v) for k, v in parameters.items()})
+        resp = client.post(
+            f"{path}/buildWithParameters", data={k: str(v) for k, v in parameters.items()}
+        )
     else:
         resp = client.post(f"{path}/build")
-    return fmt({
-        "message": f"Build of '{args['job_name']}' queued.",
-        "queue_url": resp.headers.get("Location"),
-    })
+    return fmt(
+        {
+            "message": f"Build of '{args['job_name']}' queued.",
+            "queue_url": resp.headers.get("Location"),
+        }
+    )
 
 
 @tool("jenkins_stop_build", "Abort a running build.", {**JOB, **BUILD}, ["job_name"])
@@ -92,7 +100,10 @@ def delete_build(client, args):
     {
         **JOB,
         **BUILD,
-        "script": {"type": "string", "description": "Replacement main Jenkinsfile script. Omit to reuse the original."},
+        "script": {
+            "type": "string",
+            "description": "Replacement main Jenkinsfile script. Omit to reuse the original.",
+        },
     },
     ["job_name"],
 )
@@ -101,9 +112,13 @@ def replay_build(client, args):
     script = args.get("script")
     if script is None:
         page = client.get_text(f"{path}/")
-        match = re.search(r'<textarea[^>]*name="(?:_\.)?mainScript"[^>]*>(.*?)</textarea>', page, re.S)
+        match = re.search(
+            r'<textarea[^>]*name="(?:_\.)?mainScript"[^>]*>(.*?)</textarea>', page, re.S
+        )
         if not match:
-            return err("Could not read the original script from the replay page; pass 'script' explicitly.")
+            return err(
+                "Could not read the original script from the replay page; pass 'script' explicitly."
+            )
         script = html.unescape(match.group(1))
     client.post(
         f"{path}/run",
@@ -118,7 +133,11 @@ def replay_build(client, args):
     {
         **JOB,
         **BUILD,
-        "tail_lines": {"type": "integer", "description": "Number of trailing lines; 0 returns the whole log.", "default": _DEFAULT_LOG_TAIL_LINES},
+        "tail_lines": {
+            "type": "integer",
+            "description": "Number of trailing lines; 0 returns the whole log.",
+            "default": _DEFAULT_LOG_TAIL_LINES,
+        },
     },
     ["job_name"],
     read_only=True,

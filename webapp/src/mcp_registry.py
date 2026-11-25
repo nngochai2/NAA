@@ -17,6 +17,7 @@ Expected meta.yml schema:
         secret: true
         placeholder: "tok-..."
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,11 +67,11 @@ def discover_servers() -> dict[str, dict[str, Any]]:
         port = int(data.get("port", 8000))
         sse_host = "localhost" if host == "0.0.0.0" else host
         servers[server_id] = {
-            "label":   data.get("label", server_id),
-            "cmd":     _resolve_cmd(data.get("cmd", [])),
-            "cwd":     meta_path.parent,
-            "port":    port,
-            "host":    host,
+            "label": data.get("label", server_id),
+            "cmd": _resolve_cmd(data.get("cmd", [])),
+            "cwd": meta_path.parent,
+            "port": port,
+            "host": host,
             "sse_url": f"http://{sse_host}:{port}/sse",
         }
     return servers
@@ -78,8 +79,8 @@ def discover_servers() -> dict[str, dict[str, Any]]:
 
 def discover_credentials() -> tuple[dict[str, Path], dict[str, list[dict[str, Any]]]]:
     """Return (MODULE_ENV_PATHS, MODULE_CRED_FIELDS) built from meta.yml files."""
-    env_paths:   dict[str, Path]                  = {}
-    cred_fields: dict[str, list[dict[str, Any]]]  = {}
+    env_paths: dict[str, Path] = {}
+    cred_fields: dict[str, list[dict[str, Any]]] = {}
     for meta_path in _meta_paths():
         data = _load(meta_path)
         if not data:
@@ -88,6 +89,6 @@ def discover_credentials() -> tuple[dict[str, Path], dict[str, list[dict[str, An
         if not server_id:
             continue
         env_file = data.get("env_file", ".env")
-        env_paths[server_id]   = meta_path.parent / env_file
+        env_paths[server_id] = meta_path.parent / env_file
         cred_fields[server_id] = data.get("credentials", [])
     return env_paths, cred_fields

@@ -1,4 +1,5 @@
 """All Oracle connectivity is mocked — no live database or Instant Client required."""
+
 import os
 import sys
 from unittest.mock import MagicMock, patch

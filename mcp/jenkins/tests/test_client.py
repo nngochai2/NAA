@@ -47,7 +47,9 @@ def test_post_works_when_crumbs_are_disabled(make_client):
 
 def test_http_error_html_is_reduced_to_plain_message(make_client):
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(403, text="<html><body><h1>Forbidden</h1><p>No Overall/Read</p></body></html>")
+        return httpx.Response(
+            403, text="<html><body><h1>Forbidden</h1><p>No Overall/Read</p></body></html>"
+        )
 
     with pytest.raises(JenkinsApiError) as exc:
         make_client(handler).get_json("/job/x")

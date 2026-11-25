@@ -90,7 +90,10 @@ def test_resolve_parent_strategy_falls_back_to_relates_link_for_other_combos():
 
 def test_find_epic_link_field_id_finds_field_named_epic_link():
     fields_meta = {
-        "customfield_10008": {"name": "Epic Link", "schema": {"custom": "com.pyxis.greenhopper.jira:gh-epic-link"}},
+        "customfield_10008": {
+            "name": "Epic Link",
+            "schema": {"custom": "com.pyxis.greenhopper.jira:gh-epic-link"},
+        },
         "summary": {"name": "Summary"},
     }
 

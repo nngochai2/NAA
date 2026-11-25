@@ -17,8 +17,3 @@ dependencies = [
 
 [project.scripts]
 jira-mcp = "jira_mcp.__main__:main"
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-select = ["E", "F", "I", "UP"]

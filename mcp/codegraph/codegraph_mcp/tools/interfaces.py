@@ -8,7 +8,9 @@ def get_interface_implementations(interface_name: str) -> str:
     if interface_name is None:
         return message
 
-    rows = graph_client.run_query(queries.INTERFACE_IMPLEMENTATIONS, {"interfaceName": interface_name})
+    rows = graph_client.run_query(
+        queries.INTERFACE_IMPLEMENTATIONS, {"interfaceName": interface_name}
+    )
 
     if not rows:
         return f"No implementations found for interface '{interface_name}'. Verify the interface name exists in the graph."

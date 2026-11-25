@@ -1,4 +1,5 @@
 """Oracle client initialisation, connection pool, and result helpers."""
+
 from __future__ import annotations
 
 import logging

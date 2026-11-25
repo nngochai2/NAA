@@ -1,4 +1,5 @@
 """Lazily-connected Neo4j driver shared by all tools."""
+
 from __future__ import annotations
 
 import logging

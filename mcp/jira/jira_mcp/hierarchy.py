@@ -3,6 +3,7 @@
 No I/O here — these functions take already-fetched Jira metadata (link types,
 transitions, create-meta) and decide what to do with it.
 """
+
 from __future__ import annotations
 
 
@@ -78,7 +79,9 @@ def resolve_custom_fields(custom_fields: dict[str, object], fields_meta: dict) -
                 f"Unknown Jira field {name!r} — check the exact field name on this "
                 "project's issue-create screen."
             )
-        resolved[field_id] = coerce_custom_field_value(fields_meta[field_id].get("schema", {}), value)
+        resolved[field_id] = coerce_custom_field_value(
+            fields_meta[field_id].get("schema", {}), value
+        )
     return resolved
 
 
@@ -90,5 +93,7 @@ def find_missing_required_fields(fields_meta: dict, provided_field_ids: set[str]
     return [
         field.get("name", field_id)
         for field_id, field in fields_meta.items()
-        if field.get("required") and field_id not in provided_field_ids and field_id not in always_satisfied
+        if field.get("required")
+        and field_id not in provided_field_ids
+        and field_id not in always_satisfied
     ]

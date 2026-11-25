@@ -1,4 +1,5 @@
 """Jira attachment tools — lets the agent see images (and read text files) attached to issues."""
+
 from __future__ import annotations
 
 import base64
@@ -18,10 +19,28 @@ DEFAULT_MAX_TEXT_BYTES = 100_000
 # Image types the model can read. SVG/TIFF/BMP are deliberately excluded.
 _IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 _TEXT_TYPES = {
-    "application/json", "application/xml", "application/x-yaml", "application/yaml",
-    "application/sql", "application/javascript", "application/x-sh",
+    "application/json",
+    "application/xml",
+    "application/x-yaml",
+    "application/yaml",
+    "application/sql",
+    "application/javascript",
+    "application/x-sh",
 }
-_TEXT_EXTENSIONS = (".log", ".txt", ".md", ".csv", ".json", ".xml", ".yml", ".yaml", ".sql", ".java", ".py", ".sh")
+_TEXT_EXTENSIONS = (
+    ".log",
+    ".txt",
+    ".md",
+    ".csv",
+    ".json",
+    ".xml",
+    ".yml",
+    ".yaml",
+    ".sql",
+    ".java",
+    ".py",
+    ".sh",
+)
 
 ATTACHMENT_TOOLS: list[Tool] = [
     Tool(
@@ -64,7 +83,12 @@ ATTACHMENT_TOOLS: list[Tool] = [
 
 
 def _text(data: object) -> list[TextContent | ImageContent]:
-    return [TextContent(type="text", text=data if isinstance(data, str) else json.dumps(data, indent=2, default=str))]
+    return [
+        TextContent(
+            type="text",
+            text=data if isinstance(data, str) else json.dumps(data, indent=2, default=str),
+        )
+    ]
 
 
 def _err(msg: str) -> list[TextContent | ImageContent]:
@@ -83,10 +107,16 @@ def _summarise(att: dict) -> dict:
 
 
 def _is_text(mime: str, filename: str) -> bool:
-    return mime.startswith("text/") or mime in _TEXT_TYPES or filename.lower().endswith(_TEXT_EXTENSIONS)
+    return (
+        mime.startswith("text/")
+        or mime in _TEXT_TYPES
+        or filename.lower().endswith(_TEXT_EXTENSIONS)
+    )
 
 
-def handle_attachment_tool(name: str, arguments: dict, client: JiraClient) -> list[TextContent | ImageContent]:
+def handle_attachment_tool(
+    name: str, arguments: dict, client: JiraClient
+) -> list[TextContent | ImageContent]:
     try:
         if name == "jira_list_attachments":
             issue = client.get_issue(arguments["issue_key"])
@@ -109,7 +139,9 @@ def handle_attachment_tool(name: str, arguments: dict, client: JiraClient) -> li
                 data = client.download_attachment(meta, DEFAULT_MAX_IMAGE_BYTES)
                 return [
                     TextContent(type="text", text=json.dumps(summary, indent=2, default=str)),
-                    ImageContent(type="image", data=base64.b64encode(data).decode("ascii"), mimeType=mime),
+                    ImageContent(
+                        type="image", data=base64.b64encode(data).decode("ascii"), mimeType=mime
+                    ),
                 ]
 
             if _is_text(mime, filename):
@@ -118,12 +150,17 @@ def handle_attachment_tool(name: str, arguments: dict, client: JiraClient) -> li
                 text = data.decode("utf-8", errors="replace")
                 if size > len(data):
                     text += f"\n\n[truncated at {len(data)} of {size} bytes]"
-                return [TextContent(type="text", text=json.dumps(summary, indent=2, default=str)), *_text(text)]
+                return [
+                    TextContent(type="text", text=json.dumps(summary, indent=2, default=str)),
+                    *_text(text),
+                ]
 
-            return _text({
-                **summary,
-                "note": "Content not returned: only images and text-like files can be read through this tool.",
-            })
+            return _text(
+                {
+                    **summary,
+                    "note": "Content not returned: only images and text-like files can be read through this tool.",
+                }
+            )
 
         return _err(f"Unknown tool: {name}")
 

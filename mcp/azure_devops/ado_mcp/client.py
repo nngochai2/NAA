@@ -2,6 +2,7 @@
 
 Calls are sync for simplicity; the MCP handlers run them in a worker thread.
 """
+
 from __future__ import annotations
 
 import httpx

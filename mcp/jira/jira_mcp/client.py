@@ -1,4 +1,5 @@
 """Jira REST API v2 client (Data Center / Server, not Cloud)."""
+
 from __future__ import annotations
 
 from urllib.parse import quote
@@ -33,7 +34,13 @@ def _extract_error_message(resp: httpx.Response) -> str:
 
 
 class JiraClient:
-    def __init__(self, base_url: str, token: str, ssl_verify: bool = True, transport: httpx.BaseTransport | None = None):
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        ssl_verify: bool = True,
+        transport: httpx.BaseTransport | None = None,
+    ):
         self._http = httpx.Client(
             base_url=base_url.rstrip("/"),
             headers={
@@ -67,7 +74,9 @@ class JiraClient:
                 resp.read()
                 if resp.status_code >= 400:
                     self._raise_for_status(resp)
-                raise JiraApiError(resp.status_code, "Unexpected redirect while downloading attachment")
+                raise JiraApiError(
+                    resp.status_code, "Unexpected redirect while downloading attachment"
+                )
             chunks: list[bytes] = []
             total = 0
             for chunk in resp.iter_bytes():
@@ -169,11 +178,14 @@ class JiraClient:
         return resp.json().get("issueLinkTypes", [])
 
     def create_link(self, issue_key: str, target_issue_key: str, link_type_id: str) -> None:
-        resp = self._http.post("/rest/api/2/issueLink", json={
-            "type": {"id": link_type_id},
-            "inwardIssue": {"key": issue_key},
-            "outwardIssue": {"key": target_issue_key},
-        })
+        resp = self._http.post(
+            "/rest/api/2/issueLink",
+            json={
+                "type": {"id": link_type_id},
+                "inwardIssue": {"key": issue_key},
+                "outwardIssue": {"key": target_issue_key},
+            },
+        )
         self._raise_for_status(resp)
 
     def get_transitions(self, issue_key: str) -> list[dict]:
@@ -189,11 +201,14 @@ class JiraClient:
         self._raise_for_status(resp)
 
     def get_create_meta(self, project_key: str, issue_type: str) -> dict:
-        resp = self._http.get("/rest/api/2/issue/createmeta", params={
-            "projectKeys": project_key,
-            "issuetypeNames": issue_type,
-            "expand": "projects.issuetypes.fields",
-        })
+        resp = self._http.get(
+            "/rest/api/2/issue/createmeta",
+            params={
+                "projectKeys": project_key,
+                "issuetypeNames": issue_type,
+                "expand": "projects.issuetypes.fields",
+            },
+        )
         self._raise_for_status(resp)
 
         for project in resp.json().get("projects", []):

@@ -1,4 +1,5 @@
 """Ad-hoc read-only query tool."""
+
 from __future__ import annotations
 
 import oracledb

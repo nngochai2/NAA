@@ -11,33 +11,34 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 
+
 # Lazy imports to avoid circular deps at module load time
-def _make_session() -> "SessionState":
+def _make_session() -> SessionState:
     from .compliance_scanner import ComplianceScanner
     from .processor import ProcessorService
     from .selection_service import SelectionService
     from .tree_builder import TreeBuilder
     from .vault_manager import VaultManager
 
-    tree    = TreeBuilder()
-    vault   = VaultManager()
-    sel     = SelectionService(tree)
+    tree = TreeBuilder()
+    vault = VaultManager()
+    sel = SelectionService(tree)
     scanner = ComplianceScanner(tree)
-    proc    = ProcessorService(tree)
+    proc = ProcessorService(tree)
     return SessionState(vault=vault, tree=tree, sel=sel, scanner=scanner, proc=proc)
 
 
 @dataclass
 class SessionState:
-    vault:          object   # VaultManager
-    tree:           object   # TreeBuilder
-    sel:            object   # SelectionService
-    scanner:        object   # ComplianceScanner
-    proc:           object   # ProcessorService
-    neo4j_uri:      str | None = None
-    neo4j_user:     str | None = None
+    vault: object  # VaultManager
+    tree: object  # TreeBuilder
+    sel: object  # SelectionService
+    scanner: object  # ComplianceScanner
+    proc: object  # ProcessorService
+    neo4j_uri: str | None = None
+    neo4j_user: str | None = None
     neo4j_password: str | None = None
-    last_active:    float = field(default_factory=time.time)
+    last_active: float = field(default_factory=time.time)
 
 
 class SessionManager:
@@ -53,7 +54,7 @@ class SessionManager:
             state.last_active = time.time()
             return session_id, state
 
-        new_id    = str(uuid.uuid4())
+        new_id = str(uuid.uuid4())
         new_state = _make_session()
         self._sessions[new_id] = new_state
         return new_id, new_state

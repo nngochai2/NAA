@@ -6,6 +6,7 @@ Transport: SSE/HTTP — run on a shared team VM, one instance for all developers
 Auth: NTLM (Windows domain account) using the shared ADO_USERNAME /
 ADO_PASSWORD from .env.
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,9 +48,10 @@ def create_starlette_app() -> Starlette:
     sse_transport = SseServerTransport("/messages/")
 
     async def handle_sse(request: Request):
-        async with sse_transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as (read_stream, write_stream):
+        async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (
+            read_stream,
+            write_stream,
+        ):
             await server.run(read_stream, write_stream, server.create_initialization_options())
 
     @asynccontextmanager
@@ -57,7 +59,9 @@ def create_starlette_app() -> Starlette:
         cfg = get_config()
         logger.info(
             "ADO MCP Server running on http://%s:%s/sse  (project: %s)",
-            cfg.host, cfg.port, cfg.project,
+            cfg.host,
+            cfg.port,
+            cfg.project,
         )
         yield
 

@@ -25,6 +25,7 @@ Tool inventory
 
 Importing this module registers every tool on the shared FastMCP instance.
 """
+
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP

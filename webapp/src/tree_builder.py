@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from .schemas import ComplianceStatus, DocumentInfo, FolderDetailResponse, FolderNode, FormatCompliance
+from .schemas import (
+    ComplianceStatus,
+    DocumentInfo,
+    FolderDetailResponse,
+    FolderNode,
+    FormatCompliance,
+)
 
 # Folders to skip when scanning the vault
 _SKIP_FOLDERS = {".obsidian", ".git", "_staging", ".trash"}
@@ -36,13 +42,13 @@ class TreeBuilder:
 
     def __init__(self) -> None:
         # folder_id → FolderNode (the live tree nodes, mutated by compliance)
-        self._index:      dict[str, FolderNode] = {}
+        self._index: dict[str, FolderNode] = {}
         # folder_id → absolute Path on disk
-        self._paths:      dict[str, Path]       = {}
+        self._paths: dict[str, Path] = {}
         # root FolderNode (None until build() is called)
-        self._root:       FolderNode | None     = None
-        self._vault_root: Path | None           = None
-        self._built_at:   str | None            = None
+        self._root: FolderNode | None = None
+        self._vault_root: Path | None = None
+        self._built_at: str | None = None
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -53,8 +59,8 @@ class TreeBuilder:
         self._vault_root = vault_root
 
         root = self._scan_dir(vault_root, vault_root, parent_id=None, level=0)
-        self._root     = root
-        self._built_at = datetime.now(timezone.utc).isoformat()
+        self._root = root
+        self._built_at = datetime.now(UTC).isoformat()
         return root
 
     def get_root(self) -> FolderNode | None:
@@ -78,17 +84,17 @@ class TreeBuilder:
         for f in sorted(abs_path.iterdir()):
             if f.is_file() and f.suffix == ".md":
                 rel = str(f.relative_to(self._vault_root)).replace("\\", "/")
-                docs.append(DocumentInfo(
-                    id=_doc_id(rel),
-                    filename=f.name,
-                    relative_path=rel,
-                    folder_id=folder_id,
-                    size_bytes=f.stat().st_size,
-                    modified_at=datetime.fromtimestamp(
-                        f.stat().st_mtime, tz=timezone.utc
-                    ).isoformat(),
-                    format_compliance=FormatCompliance.UNRECOGNIZED,  # filled by compliance scanner
-                ))
+                docs.append(
+                    DocumentInfo(
+                        id=_doc_id(rel),
+                        filename=f.name,
+                        relative_path=rel,
+                        folder_id=folder_id,
+                        size_bytes=f.stat().st_size,
+                        modified_at=datetime.fromtimestamp(f.stat().st_mtime, tz=UTC).isoformat(),
+                        format_compliance=FormatCompliance.UNRECOGNIZED,  # filled by compliance scanner
+                    )
+                )
         return docs
 
     def get_folder_detail(self, folder_id: str) -> FolderDetailResponse | None:
@@ -113,10 +119,10 @@ class TreeBuilder:
         node = self._index.get(folder_id)
         if not node:
             return
-        node.compliance_status  = ComplianceStatus.SCANNED
-        node.compliant_docs     = compliant
-        node.legacy_docs        = legacy
-        node.unrecognized_docs  = unrecognized
+        node.compliance_status = ComplianceStatus.SCANNED
+        node.compliant_docs = compliant
+        node.legacy_docs = legacy
+        node.unrecognized_docs = unrecognized
         self._propagate_compliance(folder_id)
 
     def mark_compliance_error(self, folder_id: str) -> None:
@@ -142,12 +148,12 @@ class TreeBuilder:
         rel = str(directory.relative_to(vault_root)).replace("\\", "/")
         if rel == ".":
             rel = ""
-        fid  = _folder_id(rel)
+        fid = _folder_id(rel)
         name = directory.name if rel else vault_root.name
 
-        doc_count   = 0
+        doc_count = 0
         total_bytes = 0
-        children:   list[FolderNode] = []
+        children: list[FolderNode] = []
 
         try:
             entries = sorted(directory.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
@@ -165,7 +171,7 @@ class TreeBuilder:
             elif entry.is_file() and entry.suffix == ".md":
                 try:
                     sz = entry.stat().st_size
-                    doc_count   += 1
+                    doc_count += 1
                     total_bytes += sz
                 except OSError:
                     pass
@@ -184,7 +190,7 @@ class TreeBuilder:
         )
 
         self._index[fid] = node
-        self._paths[fid]  = directory
+        self._paths[fid] = directory
         return node
 
     def _propagate_compliance(self, folder_id: str) -> None:
@@ -214,17 +220,17 @@ class TreeBuilder:
                 if child.compliance_status != ComplianceStatus.SCANNED:
                     all_scanned = False
                     continue
-                total_c += child.compliant_docs    or 0
-                total_l += child.legacy_docs       or 0
+                total_c += child.compliant_docs or 0
+                total_l += child.legacy_docs or 0
                 total_u += child.unrecognized_docs or 0
             # Also include docs directly in this folder
             if parent_node.compliance_status == ComplianceStatus.SCANNED:
                 pass  # already set; don't double-count
             if all_scanned:
-                parent_node.compliance_status  = ComplianceStatus.SCANNED
-                parent_node.compliant_docs     = total_c
-                parent_node.legacy_docs        = total_l
-                parent_node.unrecognized_docs  = total_u
+                parent_node.compliance_status = ComplianceStatus.SCANNED
+                parent_node.compliant_docs = total_c
+                parent_node.legacy_docs = total_l
+                parent_node.unrecognized_docs = total_u
             current = current.parent
             if current == self._vault_root.parent:
                 break

@@ -19,6 +19,7 @@ def _stage(content=VALID_NOTE, path=NOTE_PATH, note_type="convention"):
 
 # ── parsing helpers ───────────────────────────────────────────────────────────
 
+
 def test_parse_wikilinks_classifies_tags_and_aliases():
     links = parse_wikilinks(VALID_NOTE + "\n![[embedded.png]]")
     by_target = {lnk["target"]: lnk for lnk in links}
@@ -35,8 +36,14 @@ def test_extract_body_starts_at_first_h1_and_caps_length():
 
 def test_note_props_normalises_path_and_derives_stable_id():
     def props(path):
-        return note_props({"vault_relative_path": path, "title": "N",
-                           "note_type": "CONVENTION", "content": VALID_NOTE})
+        return note_props(
+            {
+                "vault_relative_path": path,
+                "title": "N",
+                "note_type": "CONVENTION",
+                "content": VALID_NOTE,
+            }
+        )
 
     windows, posix = props("a\\Conventions\\N.md"), props("a/Conventions/N.md")
     assert windows["path"] == "a/Conventions/N.md"
@@ -47,12 +54,16 @@ def test_note_props_normalises_path_and_derives_stable_id():
 
 # ── stage_note validation ─────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("kwargs, expected", [
-    ({"note_type": "bogus"}, "Invalid note_type"),
-    ({"path": "../escape.md"}, "'..' is not allowed"),
-    ({"path": "Knowledge/note.txt"}, "must end with .md"),
-    ({"content": "# No header"}, "must start with a date header"),
-])
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        ({"note_type": "bogus"}, "Invalid note_type"),
+        ({"path": "../escape.md"}, "'..' is not allowed"),
+        ({"path": "Knowledge/note.txt"}, "must end with .md"),
+        ({"content": "# No header"}, "must start with a date header"),
+    ],
+)
 def test_stage_note_rejects_invalid_input(kwargs, expected):
     note_id, out = _stage(**kwargs)
     assert note_id is None
@@ -62,7 +73,7 @@ def test_stage_note_rejects_invalid_input(kwargs, expected):
 
 @pytest.mark.xfail(
     reason="pre-existing bug: extract_body() truncates to 5000 chars, so the "
-           "'body > 5000' guard in stage_note can never trigger",
+    "'body > 5000' guard in stage_note can never trigger",
     strict=True,
 )
 def test_stage_note_rejects_overlong_body():
@@ -72,6 +83,7 @@ def test_stage_note_rejects_overlong_body():
 
 
 # ── full review lifecycle ─────────────────────────────────────────────────────
+
 
 def test_stage_writes_staging_entry_and_preview(vault):
     note_id, out = _stage()

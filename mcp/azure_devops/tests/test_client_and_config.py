@@ -7,8 +7,15 @@ from ado_mcp.config import get_config
 
 @pytest.fixture
 def env(monkeypatch):
-    for key in ("ADO_BASE_URL", "ADO_PROJECT", "ADO_USERNAME", "ADO_PASSWORD",
-                "ADO_API_VERSION", "MCP_HOST", "MCP_PORT"):
+    for key in (
+        "ADO_BASE_URL",
+        "ADO_PROJECT",
+        "ADO_USERNAME",
+        "ADO_PASSWORD",
+        "ADO_API_VERSION",
+        "MCP_HOST",
+        "MCP_PORT",
+    ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.chdir(__import__("tempfile").gettempdir())  # no stray .env
     get_config.cache_clear()
@@ -23,14 +30,19 @@ def test_config_reports_missing_vars(env):
 
 
 def test_config_defaults_and_blank_values(env):
-    for key, value in {"ADO_BASE_URL": "http://x/Coll/", "ADO_PROJECT": "P",
-                       "ADO_USERNAME": "u", "ADO_PASSWORD": "p",
-                       "ADO_API_VERSION": "", "MCP_PORT": ""}.items():
+    for key, value in {
+        "ADO_BASE_URL": "http://x/Coll/",
+        "ADO_PROJECT": "P",
+        "ADO_USERNAME": "u",
+        "ADO_PASSWORD": "p",
+        "ADO_API_VERSION": "",
+        "MCP_PORT": "",
+    }.items():
         env.setenv(key, value)
     cfg = get_config()
     assert cfg.base_url == "http://x/Coll"
-    assert cfg.api_version == "5.0"   # blank in .env falls back to the default
-    assert cfg.port == 8004           # matches meta.yml
+    assert cfg.api_version == "5.0"  # blank in .env falls back to the default
+    assert cfg.port == 8004  # matches meta.yml
     assert cfg.host == "0.0.0.0"
 
 

@@ -1,8 +1,9 @@
 """Registration helpers shared by the tool modules."""
+
 from __future__ import annotations
 
 import json
-from typing import Callable
+from collections.abc import Callable
 
 from mcp.types import TextContent, Tool, ToolAnnotations
 
@@ -45,15 +46,21 @@ def tool(
     """Register a handler `fn(client, arguments)` as an MCP tool."""
 
     def register(fn: Handler) -> Handler:
-        annotations = ToolAnnotations(readOnlyHint=True) if read_only else (
-            ToolAnnotations(destructiveHint=True) if destructive else None
+        annotations = (
+            ToolAnnotations(readOnlyHint=True)
+            if read_only
+            else (ToolAnnotations(destructiveHint=True) if destructive else None)
         )
         REGISTRY[name] = (
             Tool(
                 name=name,
                 description=description,
                 annotations=annotations,
-                inputSchema={"type": "object", "properties": properties or {}, "required": required or []},
+                inputSchema={
+                    "type": "object",
+                    "properties": properties or {},
+                    "required": required or [],
+                },
             ),
             fn,
         )

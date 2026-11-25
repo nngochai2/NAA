@@ -6,6 +6,7 @@ requirements and graph statistics, and stage new notes for review.
 
 Importing this module registers every tool on the shared FastMCP instance.
 """
+
 from __future__ import annotations
 
 from .app import mcp

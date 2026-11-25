@@ -8,7 +8,9 @@ def find_method_callers(method_name: str, class_name: str | None = None) -> str:
         class_name, message = resolve_class_name(class_name)
         if class_name is None:
             return message
-        rows = graph_client.run_query(queries.METHOD_CALLERS_SCOPED, {"methodName": method_name, "className": class_name})
+        rows = graph_client.run_query(
+            queries.METHOD_CALLERS_SCOPED, {"methodName": method_name, "className": class_name}
+        )
         scope_desc = f"on class '{class_name}'"
     else:
         rows = graph_client.run_query(queries.METHOD_CALLERS, {"methodName": method_name})

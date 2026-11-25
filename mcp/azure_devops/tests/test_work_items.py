@@ -43,10 +43,19 @@ def test_fetch_work_item_flattens_fields(client, ado):
 
 def test_search_scopes_to_project_and_batches_ids(client, ado):
     ado.add("POST", wi_path("wiql"), {"workItems": [{"id": 1}, {"id": 2}, {"id": 3}]})
-    ado.add("GET", wi_path("workitems"), {"value": [
-        {"id": 1, "fields": {"System.Title": "A", "System.AssignedTo": {"displayName": "X"}}},
-        {"id": 2, "fields": {"System.Title": "B"}},
-    ]})
+    ado.add(
+        "GET",
+        wi_path("workitems"),
+        {
+            "value": [
+                {
+                    "id": 1,
+                    "fields": {"System.Title": "A", "System.AssignedTo": {"displayName": "X"}},
+                },
+                {"id": 2, "fields": {"System.Title": "B"}},
+            ]
+        },
+    )
 
     results = work_items.search_work_items(client, "[System.State] = 'Active'", top=2)
 
@@ -54,8 +63,14 @@ def test_search_scopes_to_project_and_batches_ids(client, ado):
     assert "WHERE [System.TeamProject] = 'Proj' AND [System.State] = 'Active'" in wiql
     assert ado.requests[0].url.params["$top"] == "2"
     assert ado.requests[1].url.params["ids"] == "1,2"
-    assert results[0] == {"id": 1, "type": None, "title": "A", "state": None,
-                          "assigned_to": "X", "iteration": None}
+    assert results[0] == {
+        "id": 1,
+        "type": None,
+        "title": "A",
+        "state": None,
+        "assigned_to": "X",
+        "iteration": None,
+    }
 
 
 def test_search_with_no_hits_skips_batch_call(client, ado):
@@ -65,12 +80,23 @@ def test_search_with_no_hits_skips_batch_call(client, ado):
 
 
 def test_fetch_comments_skips_revisions_without_history(client, ado):
-    ado.add("GET", wi_path("workitems/7/revisions"), {"value": [
-        {"rev": 1, "fields": {"System.History": ""}},
-        {"rev": 2, "fields": {"System.History": "<p>Decided to defer</p>",
-                              "System.ChangedBy": {"displayName": "PM"},
-                              "System.ChangedDate": "2026-01-01"}},
-    ]})
+    ado.add(
+        "GET",
+        wi_path("workitems/7/revisions"),
+        {
+            "value": [
+                {"rev": 1, "fields": {"System.History": ""}},
+                {
+                    "rev": 2,
+                    "fields": {
+                        "System.History": "<p>Decided to defer</p>",
+                        "System.ChangedBy": {"displayName": "PM"},
+                        "System.ChangedDate": "2026-01-01",
+                    },
+                },
+            ]
+        },
+    )
     assert work_items.fetch_comments(client, 7) == [
         {"revision": 2, "author": "PM", "date": "2026-01-01", "text": "Decided to defer"},
     ]
@@ -78,22 +104,35 @@ def test_fetch_comments_skips_revisions_without_history(client, ado):
 
 def test_fetch_related_items_resolves_work_item_links(client, ado):
     relations = [
-        {"rel": "System.LinkTypes.Hierarchy-Reverse",
-         "url": f"{BASE}/_apis/wit/workItems/10"},          # not resolvable (case)
+        {
+            "rel": "System.LinkTypes.Hierarchy-Reverse",
+            "url": f"{BASE}/_apis/wit/workItems/10",
+        },  # not resolvable (case)
         {"rel": "System.LinkTypes.Related", "url": f"{BASE}/_apis/wit/workitems/11"},
         {"rel": "System.LinkTypes.Related", "url": f"{BASE}/_apis/wit/workitems/12"},
         {"rel": "Hyperlink", "url": "https://wiki/page", "attributes": {"comment": "spec"}},
     ]
     ado.add("GET", wi_path("workitems/42"), _work_item(relations=relations))
-    ado.add("GET", wi_path("workitems/11"),
-            {"fields": {"System.Title": "Parent", "System.State": "Done"}})
+    ado.add(
+        "GET",
+        wi_path("workitems/11"),
+        {"fields": {"System.Title": "Parent", "System.State": "Done"}},
+    )
     # workitems/12 has no route → 404 → logged and skipped
 
     related = work_items.fetch_related_items(client, 42)
 
-    assert {"relation_type": "System.LinkTypes.Related", "id": 11, "type": None,
-            "title": "Parent", "state": "Done"} in related
-    assert {"relation_type": "Hyperlink", "url": "https://wiki/page",
-            "attributes": {"comment": "spec"}} in related
+    assert {
+        "relation_type": "System.LinkTypes.Related",
+        "id": 11,
+        "type": None,
+        "title": "Parent",
+        "state": "Done",
+    } in related
+    assert {
+        "relation_type": "Hyperlink",
+        "url": "https://wiki/page",
+        "attributes": {"comment": "spec"},
+    } in related
     assert not any(r.get("id") == 12 for r in related)
     assert len(related) == 3

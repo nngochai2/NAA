@@ -24,12 +24,3 @@ packages = ["codegraph_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
-# Tool output strings are long by nature; wrapping them hurts readability.
-per-file-ignores = { "codegraph_mcp/tools/*.py" = ["E501"], "codegraph_mcp/cypher/*.py" = ["E501"] }

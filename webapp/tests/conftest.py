@@ -2,32 +2,39 @@
 Shared fixtures for the webapp test suite.
 
 Parser tests:  use sample_docx + rule_path — no network required.
-Graph tests:   use graph_db — requires Neo4j at bolt://localhost:7687.
+Graph tests:   use graph_db — need a running Neo4j, using the NEO4J_* settings
+               from webapp/.env (or the environment). Skipped when it is unreachable.
 """
+
+import os
 import sys
 from pathlib import Path
 
 import pytest
 from docx import Document as DocxDocument
+from dotenv import load_dotenv
 
 # ── Path setup ────────────────────────────────────────────────────────────────
 # Add webapp/ so `from src.X import ...` works, and pipeline/src/ so graph.py
 # can import models and config without modification.
-_REPO   = Path(__file__).parent.parent.parent
+_REPO = Path(__file__).parent.parent.parent
 _WEBAPP = _REPO / "webapp"
-_PIPE   = _REPO / "pipeline" / "src"
+_PIPE = _REPO / "pipeline" / "src"
 
 for p in [str(_WEBAPP), str(_PIPE)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-RULE_PATH  = _REPO / "parsing-rules" / "br_requirements.yml"
-NEO4J_URI  = "neo4j://127.0.0.1:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "nguyenngochai"
+RULE_PATH = _REPO / "parsing-rules" / "br_requirements.yml"
+# Same credentials the webapp itself uses; real env vars take precedence.
+load_dotenv(_WEBAPP / ".env")
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASS = os.getenv("NEO4J_PASSWORD", "")
 
 
 # ── Parser fixtures ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def rule_path() -> Path:
@@ -100,12 +107,20 @@ def multi_prefix_docx(tmp_path) -> Path:
 
 # ── Graph fixture ─────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def graph_db():
     """Real Neo4j connection.  Cleans up test nodes after each test."""
+    from neo4j.exceptions import AuthError, ServiceUnavailable
+
     from graph import GraphBuilder
 
     db = GraphBuilder(NEO4J_URI, NEO4J_USER, NEO4J_PASS)
+    try:
+        db.driver.verify_connectivity()
+    except (ServiceUnavailable, AuthError) as exc:
+        db.close()
+        pytest.skip(f"Neo4j not available at {NEO4J_URI}: {exc}")
     yield db
 
     with db.driver.session() as s:

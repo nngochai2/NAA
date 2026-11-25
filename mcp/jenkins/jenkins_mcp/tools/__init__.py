@@ -1,4 +1,5 @@
 """Tool registry — importing the submodules registers their tools."""
+
 from __future__ import annotations
 
 import httpx

@@ -1,4 +1,5 @@
 """MCP server wired to Starlette SSE transport."""
+
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -45,12 +46,17 @@ def create_starlette_app() -> Starlette:
 
         token = _current_client.set(client)
         try:
-            async with sse.connect_sse(request.scope, request.receive, request._send) as (read, write):
+            async with sse.connect_sse(request.scope, request.receive, request._send) as (
+                read,
+                write,
+            ):
                 await server.run(read, write, server.create_initialization_options())
         finally:
             _current_client.reset(token)
 
-    return Starlette(routes=[
-        Route("/sse", endpoint=handle_sse),
-        Mount("/messages/", app=sse.handle_post_message),
-    ])
+    return Starlette(
+        routes=[
+            Route("/sse", endpoint=handle_sse),
+            Mount("/messages/", app=sse.handle_post_message),
+        ]
+    )

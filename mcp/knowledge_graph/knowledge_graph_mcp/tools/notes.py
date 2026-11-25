@@ -1,4 +1,5 @@
 """Read-only tools for querying Obsidian notes in the graph."""
+
 from __future__ import annotations
 
 from mcp.types import ToolAnnotations
@@ -24,10 +25,10 @@ def search_notes(query: str, limit: int = 10) -> str:
     lines = [f"Found {len(results)} result(s) matching '{query}':\n"]
     for r in results:
         if r.get("result_type") == "br":
-            br        = r.get("br_id", "")
-            uc        = r.get("uc_id", "")
+            br = r.get("br_id", "")
+            uc = r.get("uc_id", "")
             flow_name = r.get("flow_name", "")
-            doc       = r.get("status", "")
+            doc = r.get("status", "")
             lines.append(
                 f"- **[{br}] {r['title']}**  [BR]  "
                 f"uc={uc}  doc_type={doc}  flow={flow_name}"
@@ -54,14 +55,10 @@ def get_note(title: str) -> str:
     """
     note = get_db().get_note(title.strip())
     if not note:
-        return (
-            f"Note '{title}' not found. "
-            "Call search_notes() to find the correct title."
-        )
+        return f"Note '{title}' not found. Call search_notes() to find the correct title."
     lines = [
         f"# {note['title']}",
-        f"Type: {note['type']} | Subfolder: {note['subfolder']} | "
-        f"Status: {note['status'] or '—'}",
+        f"Type: {note['type']} | Subfolder: {note['subfolder']} | Status: {note['status'] or '—'}",
         f"Created: {note['created_at'] or '—'} | "
         f"Words: {note['word_count']} | Backlinks: {note['backlinks']}",
         f"Path: {note['path']}",
@@ -94,8 +91,7 @@ def get_related_notes(title: str, hops: int = 1) -> str:
     lines = [f"Related notes for '{title}' ({hops} hop(s), {len(results)} found):\n"]
     for r in results:
         lines.append(
-            f"- **{r['title']}**  [{r['type']}]  via {r['relationship']}  "
-            f"({r['subfolder']})"
+            f"- **{r['title']}**  [{r['type']}]  via {r['relationship']}  ({r['subfolder']})"
         )
     return "\n".join(lines)
 
@@ -115,10 +111,7 @@ def get_backlinks(title: str) -> str:
     lines = [f"Notes linking to '{title}' ({len(results)}):\n"]
     for r in results:
         ctx = f'\n    context: "{r["context"][:100]}"' if r.get("context") else ""
-        lines.append(
-            f"- **{r['source']}**  [{r['source_type']}]  "
-            f"via {r['relationship']}{ctx}"
-        )
+        lines.append(f"- **{r['source']}**  [{r['source_type']}]  via {r['relationship']}{ctx}")
     return "\n".join(lines)
 
 
@@ -147,9 +140,7 @@ def get_tagged_notes(tag: str, note_type: str | None = None, limit: int = 50) ->
     lines = [f"Notes{label} linked to '{tag}' ({len(results)} found):\n"]
     for r in results:
         summary = f"\n    {r['summary']}" if r.get("summary") else ""
-        lines.append(
-            f"- **{r['title']}**  [{r['type']}]  status: {r['status'] or '—'}{summary}"
-        )
+        lines.append(f"- **{r['title']}**  [{r['type']}]  status: {r['status'] or '—'}{summary}")
     return "\n".join(lines)
 
 
@@ -185,8 +176,8 @@ def get_graph_stats() -> str:
     total notes, total relationships, and a breakdown of notes by type.
     Useful as a first call to understand the graph's contents.
     """
-    db     = get_db()
-    stats  = db.get_stats()
+    db = get_db()
+    stats = db.get_stats()
     counts = db.get_type_counts()
     lines = [
         f"Total notes:         {stats.get('total_notes', '?')}",

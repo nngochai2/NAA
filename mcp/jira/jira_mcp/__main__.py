@@ -1,4 +1,5 @@
 """Entry point for the Jira MCP server."""
+
 import os
 
 import uvicorn

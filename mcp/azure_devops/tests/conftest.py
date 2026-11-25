@@ -39,8 +39,7 @@ def ado():
 
 @pytest.fixture
 def client(ado):
-    return AdoClient(BASE, "Proj", "DOMAIN\\user", "pw", "5.0",
-                     transport=httpx.MockTransport(ado))
+    return AdoClient(BASE, "Proj", "DOMAIN\\user", "pw", "5.0", transport=httpx.MockTransport(ado))
 
 
 def wi_path(suffix: str) -> str:
