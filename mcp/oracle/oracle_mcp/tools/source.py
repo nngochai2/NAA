@@ -7,7 +7,7 @@ from mcp.types import ToolAnnotations
 
 from .. import db
 from ..app import mcp, to_json, tool_error
-from ..guard import resolve_schema
+from ..guard import SchemaNotAllowed, resolve_schema
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -31,7 +31,10 @@ async def get_dependencies(
     "If I modify V_INVOICE_LINES, what breaks?"  →  direction='downstream'
     "What tables does P_CALC_VAT read?"          →  direction='upstream'
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     name = object_name.upper()
     direction = direction.lower()
     result: dict = {"object": f"{owner}.{name}", "direction": direction}
@@ -101,7 +104,10 @@ async def get_package_source(
     first to understand the interface, then 'body' only if the implementation
     detail is required.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     name = object_name.upper()
     part = part.lower()
 
@@ -192,15 +198,16 @@ async def search_objects(
     Parameters
     ----------
     keyword        : Search term (case-insensitive, LIKE match).
-    schema         : Restrict to one schema.  Defaults to ORACLE_DEFAULT_SCHEMA.
-                     If ALLOWED_SCHEMAS is set in .env, results are always
-                     constrained to that list regardless of this parameter.
+    schema         : Schema to search.  Defaults to ORACLE_DEFAULT_SCHEMA.
+                     Rejected if ALLOWED_SCHEMAS is set and does not include it.
     include_source : Also search ALL_SOURCE.TEXT.  Can be slow on large codebases.
                      Default: False.
     """
-    owner = resolve_schema(schema)
-    schema_clause = f"AND owner = '{owner}'"
-    kw_bind = {"kw": f"%{keyword.upper()}%"}
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
+    binds = {"kw": f"%{keyword.upper()}%", "owner": owner}
     results: dict = {}
 
     try:
@@ -209,38 +216,38 @@ async def search_objects(
 
             # Object names
             cur.execute(
-                f"""
+                """
                 SELECT owner, object_name, object_type, status, last_ddl_time
                 FROM   all_objects
-                WHERE  object_name LIKE :kw {schema_clause}
+                WHERE  object_name LIKE :kw AND owner = :owner
                 ORDER  BY object_type, object_name
             """,
-                **kw_bind,
+                **binds,
             )
             results["objects_by_name"] = db.rows(cur)
 
             # Column names
             cur.execute(
-                f"""
+                """
                 SELECT owner, table_name, column_name, data_type, nullable
                 FROM   all_tab_columns
-                WHERE  column_name LIKE :kw {schema_clause}
+                WHERE  column_name LIKE :kw AND owner = :owner
                 ORDER  BY owner, table_name, column_name
             """,
-                **kw_bind,
+                **binds,
             )
             results["columns_by_name"] = db.rows(cur)
 
             # PL/SQL source (optional; potentially slow)
             if include_source:
                 cur.execute(
-                    f"""
+                    """
                     SELECT DISTINCT owner, name, type
                     FROM   all_source
-                    WHERE  UPPER(text) LIKE :kw {schema_clause}
+                    WHERE  UPPER(text) LIKE :kw AND owner = :owner
                     ORDER  BY type, name
                 """,
-                    **kw_bind,
+                    **binds,
                 )
                 results["source_references"] = db.rows(cur)
 
@@ -267,7 +274,10 @@ async def get_invalid_objects(schema: str | None = None) -> str:
     ----------
     schema : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     try:
         with db.conn() as conn:
             cur = conn.cursor()

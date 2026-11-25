@@ -8,7 +8,7 @@ from mcp.types import ToolAnnotations
 from .. import db
 from ..app import mcp, to_json, tool_error
 from ..config import get_config
-from ..guard import resolve_schema
+from ..guard import SchemaNotAllowed, resolve_schema
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -23,7 +23,10 @@ async def describe_object(object_name: str, schema: str | None = None) -> str:
     object_name : Table or view name (case-insensitive).
     schema      : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     name = object_name.upper()
 
     col_sql = """
@@ -103,7 +106,10 @@ async def get_view_definition(view_name: str, schema: str | None = None) -> str:
     view_name : View name (case-insensitive).
     schema    : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     name = view_name.upper()
 
     try:
@@ -164,7 +170,10 @@ async def list_objects(
     name_filter : Partial object name (LIKE match, case-insensitive).
                   Example: 'INV' matches INV_HEADER, INVOICE_LINES, etc.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     conditions = ["owner = :owner"]
     binds: dict = {"owner": owner}
 
@@ -206,7 +215,10 @@ async def get_constraints(object_name: str, schema: str | None = None) -> str:
     object_name : Table name (case-insensitive).
     schema      : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     name = object_name.upper()
 
     # Oracle 11g has LISTAGG — safe to use.
@@ -266,7 +278,10 @@ async def get_indexes(object_name: str, schema: str | None = None) -> str:
     object_name : Table name (case-insensitive).
     schema      : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
-    owner = resolve_schema(schema)
+    try:
+        owner = resolve_schema(schema)
+    except SchemaNotAllowed as exc:
+        return tool_error(str(exc))
     name = object_name.upper()
 
     sql = """

@@ -32,18 +32,24 @@ def guard(sql: str) -> None:
         )
 
 
-def schema_in_clause(alias: str = "owner") -> str:
-    """
-    Returns an AND fragment restricting results to ALLOWED_SCHEMAS,
-    or an empty string when the list is unconstrained.
-    """
-    allowed = get_config().allowed_schemas
-    if not allowed:
-        return ""
-    quoted = ", ".join(f"'{s}'" for s in allowed)
-    return f"AND {alias} IN ({quoted})"
+class SchemaNotAllowed(ValueError):
+    """The requested schema is outside ALLOWED_SCHEMAS."""
 
 
 def resolve_schema(schema: str | None) -> str:
+    """
+    Upper-cased owner to query: the given schema, else ORACLE_DEFAULT_SCHEMA,
+    else ORACLE_USER.  Raises SchemaNotAllowed when ALLOWED_SCHEMAS is set and
+    the schema is not in it.
+
+    The allowlist only scopes the metadata tools.  It is not a security
+    boundary: execute_query runs arbitrary SQL, so the DB user's grants are
+    what really limit access (see sql/db_setup.sql).
+    """
     cfg = get_config()
-    return (schema or cfg.default_schema or cfg.user).upper()
+    owner = (schema or cfg.default_schema or cfg.user).upper()
+    if cfg.allowed_schemas and owner not in cfg.allowed_schemas:
+        raise SchemaNotAllowed(
+            f"Schema {owner} is not in ALLOWED_SCHEMAS ({', '.join(cfg.allowed_schemas)})."
+        )
+    return owner

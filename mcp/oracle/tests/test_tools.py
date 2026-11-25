@@ -6,7 +6,7 @@ import json
 import pytest
 
 from oracle_mcp.config import get_config
-from oracle_mcp.server import mcp
+from oracle_mcp.server import drop_disabled_tools, mcp
 from oracle_mcp.tools import metadata, query, source
 
 
@@ -27,6 +27,23 @@ def test_all_tools_registered_read_only():
     assert all(t.annotations.readOnlyHint for t in tools)
 
 
+def test_drop_disabled_tools_removes_execute_query_when_disabled(config):
+    from mcp.server.fastmcp import FastMCP
+
+    server = FastMCP("t")
+    server.add_tool(query.execute_query)
+    server.add_tool(source.get_invalid_objects)
+
+    drop_disabled_tools(server, config(ENABLE_EXECUTE_QUERY="true"))
+    assert {t.name for t in asyncio.run(server.list_tools())} == {
+        "execute_query",
+        "get_invalid_objects",
+    }
+
+    drop_disabled_tools(server, config(ENABLE_EXECUTE_QUERY="false"))
+    assert {t.name for t in asyncio.run(server.list_tools())} == {"get_invalid_objects"}
+
+
 # ── execute_query ─────────────────────────────────────────────────────────────
 
 
@@ -45,6 +62,13 @@ class TestExecuteQuery:
     async def test_blocks_dml(self, cursor):
         data = json.loads(await query.execute_query("DELETE FROM invoices"))
         assert "Only SELECT" in data["error"]
+        cursor.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_refuses_when_disabled(self, cursor, config):
+        config(ENABLE_EXECUTE_QUERY="false")
+        data = json.loads(await query.execute_query("SELECT 1 FROM dual"))
+        assert "disabled" in data["error"]
         cursor.execute.assert_not_called()
 
     @pytest.mark.asyncio
@@ -212,7 +236,63 @@ class TestSearchObjects:
 
         assert "source_references" in data["results"]
         assert cursor.execute.call_count == 3
-        assert cursor.execute.call_args.kwargs == {"kw": "%VAT%"}
+        assert cursor.execute.call_args.kwargs == {"kw": "%VAT%", "owner": "TEST_USER"}
+
+    @pytest.mark.asyncio
+    async def test_schema_is_bound_not_interpolated(self, cursor, config):
+        config(ALLOWED_SCHEMAS="")
+        cursor.description = [("A",)]
+        cursor.fetchmany.return_value = []
+        evil = "X' OR '1'='1"
+
+        await source.search_objects("vat", schema=evil)
+
+        for call in cursor.execute.call_args_list:
+            sql = call.args[0]
+            assert evil.upper() not in sql
+            assert "owner = :owner" in sql
+            assert call.kwargs["owner"] == evil.upper()
+
+
+# ── ALLOWED_SCHEMAS enforcement ───────────────────────────────────────────────
+
+SCHEMA_TOOLS = {
+    "describe_object": lambda s: metadata.describe_object("t", schema=s),
+    "get_view_definition": lambda s: metadata.get_view_definition("v", schema=s),
+    "list_objects": lambda s: metadata.list_objects(schema=s),
+    "get_constraints": lambda s: metadata.get_constraints("t", schema=s),
+    "get_indexes": lambda s: metadata.get_indexes("t", schema=s),
+    "get_dependencies": lambda s: source.get_dependencies("p", schema=s),
+    "get_package_source": lambda s: source.get_package_source("p", schema=s),
+    "search_objects": lambda s: source.search_objects("vat", schema=s),
+    "get_invalid_objects": lambda s: source.get_invalid_objects(schema=s),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool", SCHEMA_TOOLS)
+async def test_tools_reject_schema_outside_allowlist(tool, cursor, config):
+    config(ALLOWED_SCHEMAS="INVOICING")
+
+    data = json.loads(await SCHEMA_TOOLS[tool]("hr"))
+
+    assert data["error"].startswith("Schema HR is not in ALLOWED_SCHEMAS")
+    cursor.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool", SCHEMA_TOOLS)
+async def test_tools_accept_schema_inside_allowlist(tool, cursor, config):
+    config(ALLOWED_SCHEMAS="INVOICING")
+    cursor.description = [("A",)]
+    cursor.fetchmany.return_value = []
+    cursor.fetchall.return_value = []
+    cursor.fetchone.return_value = None
+
+    raw = await SCHEMA_TOOLS[tool]("invoicing")
+
+    assert "ALLOWED_SCHEMAS" not in raw
+    cursor.execute.assert_called()
 
 
 # ── get_invalid_objects ───────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import oracledb
 import pytest
 
 from oracle_mcp import db
-from oracle_mcp.guard import guard, resolve_schema, schema_in_clause
+from oracle_mcp.guard import SchemaNotAllowed, guard, resolve_schema
 
 # ── SQL guard ─────────────────────────────────────────────────────────────────
 
@@ -57,14 +57,26 @@ def test_resolve_schema_falls_back_to_user(config):
     assert resolve_schema(None) == "READER"
 
 
-def test_schema_in_clause_empty(config):
+def test_resolve_schema_allows_any_schema_when_allowlist_empty(config):
     config(ALLOWED_SCHEMAS="")
-    assert schema_in_clause() == ""
+    assert resolve_schema("anything") == "ANYTHING"
 
 
-def test_schema_in_clause_populated(config):
+def test_resolve_schema_accepts_allowed_schema_case_insensitively(config):
     config(ALLOWED_SCHEMAS="invoicing, ref ,")
-    assert schema_in_clause("o.owner") == "AND o.owner IN ('INVOICING', 'REF')"
+    assert resolve_schema("Ref") == "REF"
+
+
+def test_resolve_schema_rejects_schema_outside_allowlist(config):
+    config(ALLOWED_SCHEMAS="INVOICING,REF")
+    with pytest.raises(SchemaNotAllowed, match="Schema HR is not in ALLOWED_SCHEMAS"):
+        resolve_schema("hr")
+
+
+def test_resolve_schema_checks_default_schema_against_allowlist(config):
+    config(ALLOWED_SCHEMAS="INVOICING", ORACLE_DEFAULT_SCHEMA="HR")
+    with pytest.raises(SchemaNotAllowed):
+        resolve_schema(None)
 
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -85,6 +97,16 @@ def test_validate_reports_all_missing(config):
     with pytest.raises(OSError) as exc:
         cfg.validate()
     assert "USER, PASSWORD, ORACLE_SERVICE or ORACLE_SID" in str(exc.value)
+
+
+def test_execute_query_enabled_by_default(config, monkeypatch):
+    monkeypatch.delenv("ENABLE_EXECUTE_QUERY", raising=False)
+    assert config().enable_execute_query is True
+
+
+@pytest.mark.parametrize("value", ["false", "FALSE", "0", "no", "off"])
+def test_execute_query_can_be_disabled(config, value):
+    assert config(ENABLE_EXECUTE_QUERY=value).enable_execute_query is False
 
 
 def test_default_port_matches_meta_yml(config, monkeypatch):
