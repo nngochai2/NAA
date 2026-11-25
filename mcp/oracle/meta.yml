@@ -42,3 +42,7 @@ credentials:
     label: "Allowed Schemas"
     secret: false
     placeholder: "SCHEMA1,SCHEMA2"
+  - key: ENABLE_EXECUTE_QUERY
+    label: "Enable execute_query"
+    secret: false
+    placeholder: "true"

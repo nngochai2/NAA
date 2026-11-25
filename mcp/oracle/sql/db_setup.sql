@@ -19,15 +19,27 @@ CREATE USER mcp_reader
 GRANT CREATE SESSION TO mcp_reader;
 
 -- 3. Read access to target schemas
---    Repeat for each schema the MCP server should expose.
---    Avoid granting SELECT ANY TABLE — keep it schema-scoped.
-GRANT SELECT ANY TABLE TO mcp_reader;               -- OR use per-schema grants below
-
--- Preferred: explicit per-schema grants (more restrictive, recommended)
+--    These grants are the ONLY real limit on what the MCP server can read.
+--    execute_query runs arbitrary SELECTs, so ALLOWED_SCHEMAS in .env cannot
+--    stop it from reading anything this user has been granted.
+--    Grant SELECT only on the schemas the MCP server should expose.
+--
+--    Per object:
 -- GRANT SELECT ON [[SchemaName]].[[TableName]] TO mcp_reader;
 -- GRANT SELECT ON [[SchemaName]].[[ViewName]]  TO mcp_reader;
--- ... or use a schema-level grant if supported by your DBA policy:
--- GRANT SELECT ANY TABLE TO mcp_reader;            -- wide but bounded by ALLOWED_SCHEMAS in .env
+--
+--    Or every current table and view in one schema (re-run after adding objects):
+-- BEGIN
+--   FOR o IN (SELECT object_name FROM dba_objects
+--             WHERE  owner = '[[SchemaName]]' AND object_type IN ('TABLE', 'VIEW'))
+--   LOOP
+--     EXECUTE IMMEDIATE 'GRANT SELECT ON "[[SchemaName]]"."' || o.object_name || '" TO mcp_reader';
+--   END LOOP;
+-- END;
+-- /
+--
+--    Do NOT grant SELECT ANY TABLE: it exposes every schema in the database,
+--    and nothing in the MCP server can narrow it back down.
 
 -- 4. Data dictionary views (ALL_* views are accessible by default to
 --    any user with CREATE SESSION, but make these explicit if your DBA
