@@ -642,6 +642,65 @@ Jenkins injects secrets via environment variables — credentials are never stor
 
 ---
 
+## Contributing
+
+### One-time setup
+
+You need [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/):
+
+```powershell
+uv tool install rust-just   # or: winget install Casey.Just
+just install                # installs pre-commit and its git hooks
+```
+
+### Everyday commands
+
+Run these from the repo root. Run `just` with no arguments to list them all.
+
+| Command | What it does |
+|---|---|
+| `just test` | Runs every component's test suite |
+| `just test-jira` | Runs one suite (`test-azure-devops`, `test-codegraph`, `test-jenkins`, `test-knowledge-graph`, `test-oracle`, `test-webapp`). Extra arguments go to pytest, e.g. `just test-jira -k attachment` |
+| `just lint` | Checks lint and formatting without changing files |
+| `just format` | Fixes lint issues and formats all Python code |
+| `just check` | Runs every pre-commit hook over the whole repo |
+| `just run-webapp` | Starts the dashboard from `webapp/.venv` (see Step 2 above) |
+
+Each test suite runs in its own temporary environment, built by uv from that component's `requirements.txt`. You don't need to install any component's dependencies to run its tests. The webapp's graph tests need a running Neo4j, using the `NEO4J_*` settings in `webapp/.env`. They're skipped when Neo4j isn't reachable.
+
+### What runs on every commit
+
+`just install` sets up [pre-commit](https://pre-commit.com/) hooks that run automatically on `git commit` and block the commit if something fails:
+
+- **ruff** lints and formats Python, using the shared config in `ruff.toml`. Most problems are fixed for you; re-stage the files and commit again.
+- **gitleaks** blocks commits that contain credentials such as PATs, passwords or private keys. Secrets belong in each module's `.env`, which is git-ignored.
+- **Whitespace and file checks**: trailing whitespace, final newlines, valid YAML/TOML, merge-conflict markers and files over 1 MB.
+- **Commit message format** (see below).
+
+### Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, where the scope is optional.
+
+```text
+feat(jira): add attachment download tool
+fix(oracle): bind schema in search_objects
+docs: add Contributing section
+```
+
+Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Use the component name as the scope (`jira`, `oracle`, `webapp`, `pipeline`, ...).
+
+### Ignoring formatting commits in blame
+
+`.git-blame-ignore-revs` lists commits that only reformatted code. To make `git blame` skip them, run this once:
+
+```powershell
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+GitHub's blame view skips them automatically.
+
+---
+
 ## Roadmap
 
 | Phase | Description | Status |
