@@ -428,9 +428,9 @@ Introspects an Oracle database schema — tables, views, columns, PL/SQL procedu
 
 **Required credentials (`mcp/oracle/.env`):** `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE` (or `ORACLE_SID`), `ORACLE_USER`, `ORACLE_PASSWORD`
 
-Optional: `ORACLE_CLIENT_LIB_DIR` (path to Oracle Instant Client), `ALLOWED_SCHEMAS` (comma-separated list to restrict introspection scope).
+Optional: `ORACLE_CLIENT_LIB_DIR` (path to Oracle Instant Client), `ALLOWED_SCHEMAS` (comma-separated list; metadata tools reject any other schema), `ENABLE_EXECUTE_QUERY` (default `true`; set `false` to remove the ad-hoc `execute_query` tool).
 
-Create the read-only database user with `mcp/oracle/sql/db_setup.sql`.
+Create the read-only database user with `mcp/oracle/sql/db_setup.sql`. **Its grants are the real access boundary.** `ALLOWED_SCHEMAS` only scopes the metadata tools: `execute_query` runs arbitrary SELECTs and can read anything the database user is granted. Grant SELECT only on the schemas you want to expose, never `SELECT ANY TABLE`, or set `ENABLE_EXECUTE_QUERY=false`.
 
 To run it as a local stdio process for a single developer instead of the shared SSE server, set `MCP_TRANSPORT=stdio` and point your editor at it, e.g. in VS Code's `.vscode/mcp.json`:
 

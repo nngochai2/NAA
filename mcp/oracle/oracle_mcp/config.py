@@ -27,6 +27,8 @@ class OracleConfig:
     # Schemas the MCP server is allowed to expose. Empty = all schemas
     # accessible to ORACLE_USER.
     allowed_schemas: tuple[str, ...]
+    # Set ENABLE_EXECUTE_QUERY=false to expose only the metadata tools.
+    enable_execute_query: bool
     mcp_transport: str    # sse (network — same subnet / team) | stdio (local)
     mcp_host: str
     mcp_port: int
@@ -63,6 +65,8 @@ def get_config() -> OracleConfig:
         allowed_schemas=tuple(
             s.strip().upper() for s in os.getenv("ALLOWED_SCHEMAS", "").split(",") if s.strip()
         ),
+        enable_execute_query=os.getenv("ENABLE_EXECUTE_QUERY", "true").strip().lower()
+        not in ("false", "0", "no", "off"),
         mcp_transport=os.getenv("MCP_TRANSPORT", "sse"),
         mcp_host=os.getenv("MCP_HOST", "0.0.0.0"),
         mcp_port=int(os.getenv("MCP_PORT", "8003")),

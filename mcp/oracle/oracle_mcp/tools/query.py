@@ -23,6 +23,8 @@ async def execute_query(sql: str, max_rows: int = get_config().max_rows) -> str:
     - Verifying that a WHERE clause matches expected rows
     - Investigating data quality issues
     """
+    if not get_config().enable_execute_query:
+        return tool_error("execute_query is disabled on this server (ENABLE_EXECUTE_QUERY=false).")
     try:
         guard(sql)
         cap = min(max_rows, get_config().max_rows)
