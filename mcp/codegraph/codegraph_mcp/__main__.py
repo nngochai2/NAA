@@ -1,4 +1,5 @@
 """Entry point: python -m codegraph_mcp"""
+
 import atexit
 import logging
 

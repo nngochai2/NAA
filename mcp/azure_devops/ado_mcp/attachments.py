@@ -1,4 +1,5 @@
 """Work item attachments: listing, and text/image extraction for supported formats."""
+
 from __future__ import annotations
 
 import base64
@@ -80,12 +81,14 @@ def list_attachments(client: AdoClient, item_id: int) -> list[dict[str, Any]]:
     results = []
     for rel in _attachment_relations(client, item_id):
         attrs = rel.get("attributes", {})
-        results.append({
-            "name": attrs.get("name", ""),
-            "size_bytes": attrs.get("resourceSize"),
-            "comment": attrs.get("comment", ""),
-            "url": rel.get("url", ""),
-        })
+        results.append(
+            {
+                "name": attrs.get("name", ""),
+                "size_bytes": attrs.get("resourceSize"),
+                "comment": attrs.get("comment", ""),
+                "url": rel.get("url", ""),
+            }
+        )
     return results
 
 
@@ -97,8 +100,11 @@ def read_attachment(client: AdoClient, item_id: int, filename: str) -> dict[str,
     ``image_base64`` with their ``mime_type`` for the caller to emit as image content.
     """
     match = next(
-        (r for r in _attachment_relations(client, item_id)
-         if r.get("attributes", {}).get("name", "").lower() == filename.lower()),
+        (
+            r
+            for r in _attachment_relations(client, item_id)
+            if r.get("attributes", {}).get("name", "").lower() == filename.lower()
+        ),
         None,
     )
     if match is None:

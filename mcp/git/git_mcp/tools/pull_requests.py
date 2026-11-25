@@ -1,4 +1,5 @@
 """Generic Git pull-request / merge-request tools."""
+
 from __future__ import annotations
 
 import json
@@ -122,19 +123,21 @@ def _err(msg: str) -> list[TextContent]:
 async def handle_pr_tool(name: str, arguments: dict) -> list[TextContent]:
     try:
         provider = get_provider()
-        repo_id  = provider.resolve_repo_id(arguments)
-        repo     = provider.get_repo(repo_id)
+        repo_id = provider.resolve_repo_id(arguments)
+        repo = provider.get_repo(repo_id)
 
         if name == "git_list_pull_requests":
-            return _fmt(provider.list_pull_requests(
-                repo,
-                state=arguments.get("state", "opened"),
-                source_branch=arguments.get("source_branch"),
-                target_branch=arguments.get("target_branch"),
-                author=arguments.get("author"),
-                search=arguments.get("search"),
-                per_page=int(arguments.get("per_page", 20)),
-            ))
+            return _fmt(
+                provider.list_pull_requests(
+                    repo,
+                    state=arguments.get("state", "opened"),
+                    source_branch=arguments.get("source_branch"),
+                    target_branch=arguments.get("target_branch"),
+                    author=arguments.get("author"),
+                    search=arguments.get("search"),
+                    per_page=int(arguments.get("per_page", 20)),
+                )
+            )
 
         if name == "git_get_pull_request":
             return _fmt(provider.get_pull_request(repo, int(arguments["pr_number"])))
@@ -146,19 +149,29 @@ async def handle_pr_tool(name: str, arguments: dict) -> list[TextContent]:
             return _fmt(provider.get_pull_request_discussions(repo, int(arguments["pr_number"])))
 
         if name == "git_create_pull_request_note":
-            return _fmt(provider.create_pull_request_note(repo, int(arguments["pr_number"]), arguments["body"]))
+            return _fmt(
+                provider.create_pull_request_note(
+                    repo, int(arguments["pr_number"]), arguments["body"]
+                )
+            )
 
         if name == "git_approve_pull_request":
-            return _fmt({"message": provider.approve_pull_request(repo, int(arguments["pr_number"]))})
+            return _fmt(
+                {"message": provider.approve_pull_request(repo, int(arguments["pr_number"]))}
+            )
 
         if name == "git_merge_pull_request":
-            return _fmt({"message": provider.merge_pull_request(
-                repo,
-                int(arguments["pr_number"]),
-                message=arguments.get("message"),
-                squash=bool(arguments.get("squash", False)),
-                remove_source=bool(arguments.get("remove_source_branch", False)),
-            )})
+            return _fmt(
+                {
+                    "message": provider.merge_pull_request(
+                        repo,
+                        int(arguments["pr_number"]),
+                        message=arguments.get("message"),
+                        squash=bool(arguments.get("squash", False)),
+                        remove_source=bool(arguments.get("remove_source_branch", False)),
+                    )
+                }
+            )
 
         return _err(f"Unknown tool: {name}")
 

@@ -1,4 +1,5 @@
 """MCP tool definitions and dispatch."""
+
 from __future__ import annotations
 
 import json
@@ -155,9 +156,9 @@ async def handle_tool(
 ) -> list[TextContent | ImageContent]:
     try:
         call = _dispatch(client, name, arguments)
-        result = await anyio.to_thread.run_sync(call) if call else {
-            "error": f"Unknown tool: {name}"
-        }
+        result = (
+            await anyio.to_thread.run_sync(call) if call else {"error": f"Unknown tool: {name}"}
+        )
 
         if isinstance(result, dict) and "image_base64" in result:
             return [

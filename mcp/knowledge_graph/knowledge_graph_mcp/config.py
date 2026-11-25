@@ -1,4 +1,5 @@
 """Knowledge Graph MCP configuration — loaded once from environment / .env."""
+
 from __future__ import annotations
 
 import os

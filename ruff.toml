@@ -9,8 +9,12 @@ src = ["mcp/*", "webapp", "pipeline/src"]
 
 [lint]
 select = ["E", "F", "I", "UP"]
-# The formatter owns line length; what's left over is long strings and comments.
-ignore = ["E501"]
+ignore = [
+    # The formatter owns line length; what's left over is long strings and comments.
+    "E501",
+    # `class X(str, Enum)` -> StrEnum changes what str() returns; not a safe swap.
+    "UP042",
+]
 
 [lint.per-file-ignores]
 # These modules extend sys.path before importing pipeline/webapp code.

@@ -1,4 +1,5 @@
 """Entry point for the Git MCP server."""
+
 import os
 
 import uvicorn
@@ -9,8 +10,8 @@ from .server import create_starlette_app
 
 def main() -> None:
     load_dotenv()
-    host     = os.environ.get("MCP_HOST", "0.0.0.0")
-    port     = int(os.environ.get("MCP_PORT", "8002"))
+    host = os.environ.get("MCP_HOST", "0.0.0.0")
+    port = int(os.environ.get("MCP_PORT", "8002"))
     provider = os.environ.get("GIT_PROVIDER", "gitlab")
     print(f"Git MCP server starting (provider: {provider})")
     print(f"SSE endpoint: http://{host}:{port}/sse")

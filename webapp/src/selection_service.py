@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .schemas import (
     SelectionState,
@@ -13,13 +13,13 @@ from .tree_builder import TreeBuilder
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class SelectionService:
     def __init__(self, tree: TreeBuilder) -> None:
-        self._tree        = tree
-        self._selected:   set[str] = set()
+        self._tree = tree
+        self._selected: set[str] = set()
         self._updated_at: str = _now()
 
     # ── Cascade helpers ────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ class SelectionService:
     # ── Aggregation ───────────────────────────────────────────────────────────
 
     def _aggregate(self) -> tuple[int, int, int, int, list[SelectionSummaryFolder]]:
-        total_docs  = compliant = legacy = unrecognized = 0
+        total_docs = compliant = legacy = unrecognized = 0
         folder_list: list[SelectionSummaryFolder] = []
 
         for fid in self._selected:
@@ -55,18 +55,20 @@ class SelectionService:
             if not node:
                 continue
             total_docs += node.document_count
-            if node.compliant_docs    is not None:
-                compliant    += node.compliant_docs
-            if node.legacy_docs       is not None:
-                legacy       += node.legacy_docs
+            if node.compliant_docs is not None:
+                compliant += node.compliant_docs
+            if node.legacy_docs is not None:
+                legacy += node.legacy_docs
             if node.unrecognized_docs is not None:
                 unrecognized += node.unrecognized_docs
-            folder_list.append(SelectionSummaryFolder(
-                id=fid,
-                name=node.name,
-                relative_path=node.relative_path,
-                document_count=node.document_count,
-            ))
+            folder_list.append(
+                SelectionSummaryFolder(
+                    id=fid,
+                    name=node.name,
+                    relative_path=node.relative_path,
+                    document_count=node.document_count,
+                )
+            )
 
         return total_docs, compliant, legacy, unrecognized, folder_list
 
@@ -92,7 +94,7 @@ class SelectionService:
         )
 
     def set_selection(self, folder_ids: list[str]) -> SelectionState:
-        self._selected   = set(folder_ids)
+        self._selected = set(folder_ids)
         self._updated_at = _now()
         return self.get_state()  # type: ignore[return-value]
 
@@ -148,11 +150,13 @@ class SelectionService:
             selected_count=len(self._selected),
             total_docs_in_selection=total,
             compliance={
-                "compliant":    compliant,
-                "legacy":       legacy,
+                "compliant": compliant,
+                "legacy": legacy,
                 "unrecognized": unrecognized,
-                "percentage":   self._compliance_pct(total, compliant),
-            } if has else None,
+                "percentage": self._compliance_pct(total, compliant),
+            }
+            if has
+            else None,
             can_start_processing=has,
             reasons_disabled=reasons,
         )

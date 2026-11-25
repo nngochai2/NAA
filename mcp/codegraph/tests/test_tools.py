@@ -17,15 +17,20 @@ from codegraph_mcp.tools.resolver import resolve_class_name
 def test_all_tools_registered_read_only():
     tools = asyncio.run(server.mcp.list_tools())
     assert {t.name for t in tools} == {
-        "tool_search_types", "tool_get_class_dependencies", "tool_get_transitive_impact",
-        "tool_find_method_callers", "tool_get_field_impact",
-        "tool_get_interface_implementations", "tool_get_class_layer_path",
+        "tool_search_types",
+        "tool_get_class_dependencies",
+        "tool_get_transitive_impact",
+        "tool_find_method_callers",
+        "tool_get_field_impact",
+        "tool_get_interface_implementations",
+        "tool_get_class_layer_path",
         "tool_get_class_overview",
     }
     assert all(t.annotations.readOnlyHint for t in tools)
 
 
 # ── resolver ──────────────────────────────────────────────────────────────────
+
 
 def test_resolver_prefers_exact_match_among_many(graph):
     graph.on(queries.CLASS_SEARCH, [type_row("Invoice"), type_row("InvoiceLine")])
@@ -66,6 +71,7 @@ def test_unresolved_name_short_circuits_every_tool(graph):
 
 # ── search / dependencies ─────────────────────────────────────────────────────
 
+
 def test_search_types(graph):
     assert server.tool_search_types("X") == "No types found matching 'X'."
     graph.on(queries.CLASS_SEARCH, [type_row("Foo")])
@@ -93,6 +99,7 @@ def test_transitive_impact_caps_hops(graph, requested, used):
 
 # ── callers / fields / interfaces ─────────────────────────────────────────────
 
+
 def test_method_callers_unscoped_and_scoped(graph):
     graph.on(queries.METHOD_CALLERS, [{"callerSignature": "void a()"}])
     assert "across all classes (1 found)" in find_method_callers("exec")
@@ -111,11 +118,14 @@ def test_server_passes_empty_class_name_as_unscoped(graph):
 
 def test_field_impact_splits_reads_and_writes(graph):
     graph.on(queries.CLASS_SEARCH, [type_row("Invoice")])
-    graph.on(queries.FIELD_IMPACT, [
-        {"access": "READS", "methodSignature": "int getTotal()"},
-        {"access": "WRITES", "methodSignature": "void setTotal(int)"},
-        {"access": "READS", "methodSignature": "String toString()"},
-    ])
+    graph.on(
+        queries.FIELD_IMPACT,
+        [
+            {"access": "READS", "methodSignature": "int getTotal()"},
+            {"access": "WRITES", "methodSignature": "void setTotal(int)"},
+            {"access": "READS", "methodSignature": "String toString()"},
+        ],
+    )
     out = get_field_impact("total", "Invoice")
     assert "2 reader(s), 1 writer(s)" in out
     assert out.index("READS:") < out.index("int getTotal()") < out.index("WRITES:")
@@ -130,12 +140,16 @@ def test_interface_implementations(graph):
 
 # ── layers / overview ─────────────────────────────────────────────────────────
 
+
 def test_layer_path_keeps_only_known_layer_labels(graph):
     graph.on(queries.CLASS_SEARCH, [type_row("Dao")])
-    graph.on(queries.CLASS_LAYER_PATH, [
-        {"fqn": "com.acme.InvoiceFacade", "entryLayers": ["Type", "Class", "Facade"]},
-        {"fqn": "com.acme.Thing", "entryLayers": ["Type"]},
-    ])
+    graph.on(
+        queries.CLASS_LAYER_PATH,
+        [
+            {"fqn": "com.acme.InvoiceFacade", "entryLayers": ["Type", "Class", "Facade"]},
+            {"fqn": "com.acme.Thing", "entryLayers": ["Type"]},
+        ],
+    )
     out = get_class_layer_path("Dao")
     assert "[Facade] com.acme.InvoiceFacade" in out
     assert "[unknown layer] com.acme.Thing" in out
@@ -148,8 +162,9 @@ def test_layer_path_explains_missing_post_processing(graph):
 
 def test_class_overview(graph):
     graph.on(queries.CLASS_SEARCH, [type_row("Invoice")])
-    graph.on(queries.CLASS_OVERVIEW_TYPE, [{"fqn": "com.acme.Invoice",
-                                             "typeLabels": ["Type", "Class"]}])
+    graph.on(
+        queries.CLASS_OVERVIEW_TYPE, [{"fqn": "com.acme.Invoice", "typeLabels": ["Type", "Class"]}]
+    )
     graph.on(queries.CLASS_OVERVIEW_EXTENDS, [{"fqn": "com.acme.Base"}])
     graph.on(queries.CLASS_OVERVIEW_IMPLEMENTS, [{"fqn": "java.io.Serializable"}])
     graph.on(queries.CLASS_OVERVIEW_FIELDS, [{"name": "total"}])
@@ -158,8 +173,14 @@ def test_class_overview(graph):
     out = get_class_overview("Invoice")
 
     assert out.startswith("Overview of Class: com.acme.Invoice")
-    for expected in ("Extends: com.acme.Base", "Implements (1):", "Fields (1):",
-                     "    total", "Methods (1):", "    int getTotal()"):
+    for expected in (
+        "Extends: com.acme.Base",
+        "Implements (1):",
+        "Fields (1):",
+        "    total",
+        "Methods (1):",
+        "    int getTotal()",
+    ):
         assert expected in out
 
 

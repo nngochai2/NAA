@@ -1,4 +1,5 @@
 """Work item queries: details, WIQL search, discussion history, relations."""
+
 from __future__ import annotations
 
 import html
@@ -84,7 +85,7 @@ def search_work_items(client: AdoClient, wiql_where: str, top: int = 20) -> list
         params={
             "ids": ids,
             "fields": "System.Id,System.Title,System.State,"
-                      "System.WorkItemType,System.AssignedTo,System.IterationPath",
+            "System.WorkItemType,System.AssignedTo,System.IterationPath",
         },
     )
     return [
@@ -113,12 +114,14 @@ def fetch_comments(client: AdoClient, item_id: int) -> list[dict[str, Any]]:
         history = strip_html(fields.get("System.History", ""))
         if not history:
             continue
-        results.append({
-            "revision": rev.get("rev"),
-            "author": display_name(fields.get("System.ChangedBy")),
-            "date": fields.get("System.ChangedDate"),
-            "text": history,
-        })
+        results.append(
+            {
+                "revision": rev.get("rev"),
+                "author": display_name(fields.get("System.ChangedBy")),
+                "date": fields.get("System.ChangedDate"),
+                "text": history,
+            }
+        )
     return results
 
 

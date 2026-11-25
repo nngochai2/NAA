@@ -1,4 +1,5 @@
 """SQL guard, schema helpers, configuration and connection helpers."""
+
 from unittest.mock import MagicMock, patch
 
 import oracledb
@@ -14,23 +15,26 @@ def test_select_allowed():
     guard("SELECT * FROM dual")  # should not raise
 
 
-@pytest.mark.parametrize("sql", [
-    "INSERT INTO t VALUES (1)",
-    "UPDATE t SET x=1",
-    "DELETE FROM t",
-    "MERGE INTO t USING s ON (1=1)",
-    "DROP TABLE t",
-    "CREATE TABLE t (id NUMBER)",
-    "ALTER TABLE t ADD col VARCHAR2(10)",
-    "TRUNCATE TABLE t",
-    "GRANT SELECT ON t TO user2",
-    "EXEC my_proc",
-    "BEGIN my_proc; END;",
-    "COMMIT",
-    "ROLLBACK",
-    "  \n  DELETE FROM invoices",          # leading whitespace
-    "SELECT 1 FROM dual\nDELETE FROM t",   # mutating statement on a later line
-])
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "INSERT INTO t VALUES (1)",
+        "UPDATE t SET x=1",
+        "DELETE FROM t",
+        "MERGE INTO t USING s ON (1=1)",
+        "DROP TABLE t",
+        "CREATE TABLE t (id NUMBER)",
+        "ALTER TABLE t ADD col VARCHAR2(10)",
+        "TRUNCATE TABLE t",
+        "GRANT SELECT ON t TO user2",
+        "EXEC my_proc",
+        "BEGIN my_proc; END;",
+        "COMMIT",
+        "ROLLBACK",
+        "  \n  DELETE FROM invoices",  # leading whitespace
+        "SELECT 1 FROM dual\nDELETE FROM t",  # mutating statement on a later line
+    ],
+)
 def test_mutating_blocked(sql):
     with pytest.raises(ValueError, match="Only SELECT"):
         guard(sql)
@@ -109,8 +113,9 @@ def test_init_oracle_client_ignores_already_initialised(config):
 
 def test_init_oracle_client_reraises_other_errors(config):
     config(ORACLE_CLIENT_LIB_DIR="")
-    with patch.object(oracledb, "init_oracle_client",
-                      side_effect=oracledb.ProgrammingError("boom")):
+    with patch.object(
+        oracledb, "init_oracle_client", side_effect=oracledb.ProgrammingError("boom")
+    ):
         with pytest.raises(oracledb.ProgrammingError):
             db.init_oracle_client()
 

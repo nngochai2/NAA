@@ -1,4 +1,5 @@
 """PL/SQL source, dependency, search and validity tools."""
+
 from __future__ import annotations
 
 import oracledb
@@ -12,8 +13,8 @@ from ..guard import resolve_schema
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_dependencies(
     object_name: str,
-    schema:      str | None = None,
-    direction:   str = "both",
+    schema: str | None = None,
+    direction: str = "both",
 ) -> str:
     """
     Return the dependency graph for an Oracle object via ALL_DEPENDENCIES.
@@ -30,8 +31,8 @@ async def get_dependencies(
     "If I modify V_INVOICE_LINES, what breaks?"  →  direction='downstream'
     "What tables does P_CALC_VAT read?"          →  direction='upstream'
     """
-    owner     = resolve_schema(schema)
-    name      = object_name.upper()
+    owner = resolve_schema(schema)
+    name = object_name.upper()
     direction = direction.lower()
     result: dict = {"object": f"{owner}.{name}", "direction": direction}
 
@@ -40,7 +41,8 @@ async def get_dependencies(
             cur = conn.cursor()
 
             if direction in ("upstream", "both"):
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT referenced_owner  AS dep_owner,
                            referenced_name   AS dep_name,
                            referenced_type   AS dep_type,
@@ -48,11 +50,15 @@ async def get_dependencies(
                     FROM   all_dependencies
                     WHERE  owner = :o AND name = :n
                     ORDER  BY referenced_type, referenced_name
-                """, o=owner, n=name)
+                """,
+                    o=owner,
+                    n=name,
+                )
                 result["depends_on"] = db.rows(cur)
 
             if direction in ("downstream", "both"):
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT owner        AS dep_owner,
                            name         AS dep_name,
                            type         AS dep_type,
@@ -60,7 +66,10 @@ async def get_dependencies(
                     FROM   all_dependencies
                     WHERE  referenced_owner = :o AND referenced_name = :n
                     ORDER  BY type, name
-                """, o=owner, n=name)
+                """,
+                    o=owner,
+                    n=name,
+                )
                 result["used_by"] = db.rows(cur)
 
         return to_json(result)
@@ -71,8 +80,8 @@ async def get_dependencies(
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def get_package_source(
     object_name: str,
-    schema:      str | None = None,
-    part:        str = "both",
+    schema: str | None = None,
+    part: str = "both",
 ) -> str:
     """
     Return PL/SQL source from ALL_SOURCE for packages, procedures,
@@ -93,15 +102,16 @@ async def get_package_source(
     detail is required.
     """
     owner = resolve_schema(schema)
-    name  = object_name.upper()
-    part  = part.lower()
+    name = object_name.upper()
+    part = part.lower()
 
     try:
         with db.conn() as conn:
             cur = conn.cursor()
 
             # Auto-detect object type
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT object_type FROM all_objects
                 WHERE  owner = :o AND object_name = :n
                   AND  object_type IN (
@@ -109,7 +119,10 @@ async def get_package_source(
                          'FUNCTION','TRIGGER','TYPE','TYPE BODY'
                        )
                   AND  ROWNUM = 1
-            """, o=owner, n=name)
+            """,
+                o=owner,
+                n=name,
+            )
             row = cur.fetchone()
 
         if not row:
@@ -134,28 +147,35 @@ async def get_package_source(
         with db.conn() as conn:
             cur = conn.cursor()
             for stype in fetch_types:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT text FROM all_source
                     WHERE  owner = :o AND name = :n AND type = :t
                     ORDER  BY line
-                """, o=owner, n=name, t=stype)
+                """,
+                    o=owner,
+                    n=name,
+                    t=stype,
+                )
                 lines = [r[0] for r in cur.fetchall()]
                 sections[stype] = "".join(lines) if lines else "(source not accessible)"
 
-        return to_json({
-            "object":  f"{owner}.{name}",
-            "type":    obj_type,
-            "part":    part,
-            "source":  sections,
-        })
+        return to_json(
+            {
+                "object": f"{owner}.{name}",
+                "type": obj_type,
+                "part": part,
+                "source": sections,
+            }
+        )
     except oracledb.DatabaseError as exc:
         return tool_error(f"Oracle error: {exc}")
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def search_objects(
-    keyword:        str,
-    schema:         str | None = None,
+    keyword: str,
+    schema: str | None = None,
     include_source: bool = False,
 ) -> str:
     """
@@ -178,9 +198,9 @@ async def search_objects(
     include_source : Also search ALL_SOURCE.TEXT.  Can be slow on large codebases.
                      Default: False.
     """
-    owner         = resolve_schema(schema)
+    owner = resolve_schema(schema)
     schema_clause = f"AND owner = '{owner}'"
-    kw_bind       = {"kw": f"%{keyword.upper()}%"}
+    kw_bind = {"kw": f"%{keyword.upper()}%"}
     results: dict = {}
 
     try:
@@ -188,31 +208,40 @@ async def search_objects(
             cur = conn.cursor()
 
             # Object names
-            cur.execute(f"""
+            cur.execute(
+                f"""
                 SELECT owner, object_name, object_type, status, last_ddl_time
                 FROM   all_objects
                 WHERE  object_name LIKE :kw {schema_clause}
                 ORDER  BY object_type, object_name
-            """, **kw_bind)
+            """,
+                **kw_bind,
+            )
             results["objects_by_name"] = db.rows(cur)
 
             # Column names
-            cur.execute(f"""
+            cur.execute(
+                f"""
                 SELECT owner, table_name, column_name, data_type, nullable
                 FROM   all_tab_columns
                 WHERE  column_name LIKE :kw {schema_clause}
                 ORDER  BY owner, table_name, column_name
-            """, **kw_bind)
+            """,
+                **kw_bind,
+            )
             results["columns_by_name"] = db.rows(cur)
 
             # PL/SQL source (optional; potentially slow)
             if include_source:
-                cur.execute(f"""
+                cur.execute(
+                    f"""
                     SELECT DISTINCT owner, name, type
                     FROM   all_source
                     WHERE  UPPER(text) LIKE :kw {schema_clause}
                     ORDER  BY type, name
-                """, **kw_bind)
+                """,
+                    **kw_bind,
+                )
                 results["source_references"] = db.rows(cur)
 
         total = sum(len(v) for v in results.values())
@@ -242,13 +271,16 @@ async def get_invalid_objects(schema: str | None = None) -> str:
     try:
         with db.conn() as conn:
             cur = conn.cursor()
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT object_name, object_type, last_ddl_time
                 FROM   all_objects
                 WHERE  owner  = :o
                   AND  status = 'INVALID'
                 ORDER  BY object_type, object_name
-            """, o=owner)
+            """,
+                o=owner,
+            )
             rows = db.rows(cur)
         return to_json({"schema": owner, "invalid_count": len(rows), "objects": rows})
     except oracledb.DatabaseError as exc:

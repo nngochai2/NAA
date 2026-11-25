@@ -1,4 +1,5 @@
 """Jenkins test-result and artifact tools."""
+
 from __future__ import annotations
 
 from urllib.parse import quote
@@ -22,9 +23,13 @@ _TEST_TREE = (
     read_only=True,
 )
 def get_test_results(client, args):
-    data = client.get_json(f"{build_path(args['job_name'], args.get('build_number'))}/testReport", tree=_TEST_TREE)
+    data = client.get_json(
+        f"{build_path(args['job_name'], args.get('build_number'))}/testReport", tree=_TEST_TREE
+    )
     for suite in data.get("suites", []):
-        suite["cases"] = [c for c in suite.get("cases", []) if c.get("status") not in ("PASSED", "FIXED")]
+        suite["cases"] = [
+            c for c in suite.get("cases", []) if c.get("status") not in ("PASSED", "FIXED")
+        ]
     return fmt(data)
 
 
@@ -36,7 +41,10 @@ def get_test_results(client, args):
     read_only=True,
 )
 def list_artifacts(client, args):
-    data = client.get_json(build_path(args["job_name"], args.get("build_number")), tree="artifacts[fileName,relativePath]")
+    data = client.get_json(
+        build_path(args["job_name"], args.get("build_number")),
+        tree="artifacts[fileName,relativePath]",
+    )
     return fmt(data.get("artifacts", []))
 
 
@@ -46,8 +54,15 @@ def list_artifacts(client, args):
     {
         **JOB,
         **BUILD,
-        "artifact_path": {"type": "string", "description": "Artifact relativePath from jenkins_list_artifacts."},
-        "max_bytes": {"type": "integer", "description": "Maximum bytes of text to return.", "default": _DEFAULT_ARTIFACT_BYTES},
+        "artifact_path": {
+            "type": "string",
+            "description": "Artifact relativePath from jenkins_list_artifacts.",
+        },
+        "max_bytes": {
+            "type": "integer",
+            "description": "Maximum bytes of text to return.",
+            "default": _DEFAULT_ARTIFACT_BYTES,
+        },
     },
     ["job_name", "artifact_path"],
     read_only=True,
@@ -57,13 +72,21 @@ def get_artifact(client, args):
     if any(part in ("", ".", "..") for part in relative.split("/")):
         return err(f"Invalid artifact path: {args['artifact_path']!r}")
     quoted = "/".join(quote(part, safe="") for part in relative.split("/"))
-    body, content_type = client.get_bytes(f"{build_path(args['job_name'], args.get('build_number'))}/artifact/{quoted}")
+    body, content_type = client.get_bytes(
+        f"{build_path(args['job_name'], args.get('build_number'))}/artifact/{quoted}"
+    )
 
     try:
         content = body.decode("utf-8")
     except UnicodeDecodeError:
-        return fmt({"path": relative, "size_bytes": len(body), "content_type": content_type,
-                    "message": "Binary artifact; content not returned."})
+        return fmt(
+            {
+                "path": relative,
+                "size_bytes": len(body),
+                "content_type": content_type,
+                "message": "Binary artifact; content not returned.",
+            }
+        )
 
     limit = int(args.get("max_bytes", _DEFAULT_ARTIFACT_BYTES))
     if len(body) > limit:

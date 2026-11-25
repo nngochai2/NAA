@@ -3,6 +3,7 @@
 Tool logic lives in codegraph_mcp.tools; this module only declares the MCP
 surface (names, signatures, descriptions).
 """
+
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
@@ -122,4 +123,3 @@ def tool_get_class_overview(class_name: str) -> str:
     if multiple match, a candidate list is returned.
     """
     return get_class_overview(class_name)
-

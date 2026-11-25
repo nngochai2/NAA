@@ -1,4 +1,5 @@
 """The FastMCP instance and the lazily-created Neo4j client shared by all tools."""
+
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP

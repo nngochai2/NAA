@@ -1,4 +1,5 @@
 """Tool behaviour with a mocked Oracle cursor."""
+
 import asyncio
 import json
 
@@ -12,14 +13,22 @@ from oracle_mcp.tools import metadata, query, source
 def test_all_tools_registered_read_only():
     tools = asyncio.run(mcp.list_tools())
     assert {t.name for t in tools} == {
-        "execute_query", "describe_object", "get_view_definition", "list_objects",
-        "get_dependencies", "get_package_source", "get_constraints", "search_objects",
-        "get_indexes", "get_invalid_objects",
+        "execute_query",
+        "describe_object",
+        "get_view_definition",
+        "list_objects",
+        "get_dependencies",
+        "get_package_source",
+        "get_constraints",
+        "search_objects",
+        "get_indexes",
+        "get_invalid_objects",
     }
     assert all(t.annotations.readOnlyHint for t in tools)
 
 
 # ── execute_query ─────────────────────────────────────────────────────────────
+
 
 class TestExecuteQuery:
     @pytest.mark.asyncio
@@ -52,12 +61,17 @@ class TestExecuteQuery:
 
 # ── describe_object ───────────────────────────────────────────────────────────
 
+
 class TestDescribeObject:
     @pytest.mark.asyncio
     async def test_returns_columns(self, cursor):
         cursor.description = [
-            ("COL_ID",), ("COLUMN_NAME",), ("DATA_TYPE",),
-            ("NULLABLE",), ("DATA_DEFAULT",), ("COLUMN_COMMENT",),
+            ("COL_ID",),
+            ("COLUMN_NAME",),
+            ("DATA_TYPE",),
+            ("NULLABLE",),
+            ("DATA_DEFAULT",),
+            ("COLUMN_COMMENT",),
         ]
         cursor.fetchmany.return_value = [(1, "INVOICE_ID", "NUMBER(10)", "N", None, "PK")]
         cursor.fetchone.return_value = ("Invoice header table",)
@@ -68,7 +82,8 @@ class TestDescribeObject:
         assert data["comment"] == "Invoice header table"
         assert len(data["columns"]) == 1
         assert cursor.execute.call_args_list[0].kwargs == {
-            "owner": "INVOICING", "name": "INVOICE_HEADER",
+            "owner": "INVOICING",
+            "name": "INVOICE_HEADER",
         }
 
     @pytest.mark.asyncio
@@ -83,6 +98,7 @@ class TestDescribeObject:
 
 
 # ── get_view_definition ───────────────────────────────────────────────────────
+
 
 class TestGetViewDefinition:
     @pytest.mark.asyncio
@@ -107,6 +123,7 @@ class TestGetViewDefinition:
 
 # ── list_objects ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_list_objects_binds_filters(cursor):
     cursor.description = [("OBJECT_NAME",)]
@@ -114,13 +131,14 @@ async def test_list_objects_binds_filters(cursor):
 
     data = json.loads(await metadata.list_objects("s", object_type="view", name_filter="inv"))
 
-    sql, = cursor.execute.call_args.args
+    (sql,) = cursor.execute.call_args.args
     assert "object_type = :otype" in sql and "object_name LIKE :nfilter" in sql
     assert cursor.execute.call_args.kwargs == {"owner": "S", "otype": "VIEW", "nfilter": "%INV%"}
     assert data["count"] == 1
 
 
 # ── get_dependencies ──────────────────────────────────────────────────────────
+
 
 class TestGetDependencies:
     @pytest.mark.asyncio
@@ -148,6 +166,7 @@ class TestGetDependencies:
 
 # ── get_package_source ────────────────────────────────────────────────────────
 
+
 class TestGetPackageSource:
     @pytest.mark.asyncio
     async def test_package_spec_only(self, cursor):
@@ -167,6 +186,7 @@ class TestGetPackageSource:
 
 
 # ── search_objects ────────────────────────────────────────────────────────────
+
 
 class TestSearchObjects:
     @pytest.mark.asyncio
@@ -197,6 +217,7 @@ class TestSearchObjects:
 
 # ── get_invalid_objects ───────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_invalid_objects(cursor):
     cursor.description = [("OBJECT_NAME",), ("OBJECT_TYPE",)]
@@ -204,8 +225,11 @@ async def test_get_invalid_objects(cursor):
 
     data = json.loads(await source.get_invalid_objects("s"))
 
-    assert data == {"schema": "S", "invalid_count": 1,
-                    "objects": [{"object_name": "P_BROKEN", "object_type": "PROCEDURE"}]}
+    assert data == {
+        "schema": "S",
+        "invalid_count": 1,
+        "objects": [{"object_name": "P_BROKEN", "object_type": "PROCEDURE"}],
+    }
 
 
 @pytest.mark.asyncio

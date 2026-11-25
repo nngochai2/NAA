@@ -19,7 +19,9 @@ def get_class_overview(class_name: str) -> str:
 
     methods = graph_client.run_query(queries.CLASS_OVERVIEW_METHODS, {"className": class_name})
     fields = graph_client.run_query(queries.CLASS_OVERVIEW_FIELDS, {"className": class_name})
-    implements = graph_client.run_query(queries.CLASS_OVERVIEW_IMPLEMENTS, {"className": class_name})
+    implements = graph_client.run_query(
+        queries.CLASS_OVERVIEW_IMPLEMENTS, {"className": class_name}
+    )
     extends = graph_client.run_query(queries.CLASS_OVERVIEW_EXTENDS, {"className": class_name})
 
     lines = [

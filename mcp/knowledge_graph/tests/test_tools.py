@@ -4,16 +4,33 @@ from knowledge_graph_mcp.server import mcp
 from knowledge_graph_mcp.tools import notes, requirements
 
 EXPECTED_TOOLS = {
-    "search_notes", "get_note", "get_related_notes", "get_backlinks", "get_tagged_notes",
-    "get_notes_by_type", "get_graph_stats", "find_knowledge_gaps", "get_all_note_titles",
-    "stage_note", "list_staged_notes", "approve_staged_note", "reject_staged_note",
-    "commit_approved_notes", "get_use_cases", "get_documents", "get_requirements",
-    "get_requirement_detail", "assign_br_category",
+    "search_notes",
+    "get_note",
+    "get_related_notes",
+    "get_backlinks",
+    "get_tagged_notes",
+    "get_notes_by_type",
+    "get_graph_stats",
+    "find_knowledge_gaps",
+    "get_all_note_titles",
+    "stage_note",
+    "list_staged_notes",
+    "approve_staged_note",
+    "reject_staged_note",
+    "commit_approved_notes",
+    "get_use_cases",
+    "get_documents",
+    "get_requirements",
+    "get_requirement_detail",
+    "assign_br_category",
 }
 
 WRITE_TOOLS = {
-    "stage_note", "approve_staged_note", "reject_staged_note",
-    "commit_approved_notes", "assign_br_category",
+    "stage_note",
+    "approve_staged_note",
+    "reject_staged_note",
+    "commit_approved_notes",
+    "assign_br_category",
 }
 
 
@@ -26,10 +43,20 @@ def test_all_tools_registered_with_correct_read_only_hints():
 
 def test_search_notes_formats_notes_and_brs(db):
     db.search_notes.return_value = [
-        {"title": "Invoice Numbering", "type": "CONVENTION", "subfolder": "Billing",
-         "backlinks": 3},
-        {"result_type": "br", "br_id": "BR03", "uc_id": "UC36", "flow_name": "eInvoice",
-         "status": "FDD", "title": "Validate tax code"},
+        {
+            "title": "Invoice Numbering",
+            "type": "CONVENTION",
+            "subfolder": "Billing",
+            "backlinks": 3,
+        },
+        {
+            "result_type": "br",
+            "br_id": "BR03",
+            "uc_id": "UC36",
+            "flow_name": "eInvoice",
+            "status": "FDD",
+            "title": "Validate tax code",
+        },
     ]
     out = notes.search_notes("  invoice  ", limit=500)
     db.search_notes.assert_called_once_with("invoice", 50)
@@ -90,10 +117,13 @@ def test_assign_br_category_not_found(db):
 
 def test_get_requirement_detail_prefers_confirmed_categories(db):
     db.get_requirement_detail.return_value = {
-        "br_id": "BR03", "title": "Validate", "confirmed_categories": '["UI"]',
-        "candidate_categories": '["DB"]', "body": "Body text",
+        "br_id": "BR03",
+        "title": "Validate",
+        "confirmed_categories": '["UI"]',
+        "candidate_categories": '["DB"]',
+        "body": "Body text",
     }
     out = requirements.get_requirement_detail("br03", "uc36", "fdd")
-    assert "**Categories (confirmed):** [\"UI\"]" in out
+    assert '**Categories (confirmed):** ["UI"]' in out
     assert "candidate" not in out
     assert "### Requirement Body\nBody text" in out

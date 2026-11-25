@@ -83,7 +83,11 @@ def test_create_issue_with_title_only_defaults_to_task_type(make_client):
         captured["body"] = json.loads(request.content)
         return httpx.Response(
             201,
-            json={"id": "10001", "key": "PROJ-3", "self": "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue/10001"},
+            json={
+                "id": "10001",
+                "key": "PROJ-3",
+                "self": "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue/10001",
+            },
         )
 
     client = make_client(handler)
@@ -91,7 +95,9 @@ def test_create_issue_with_title_only_defaults_to_task_type(make_client):
     result = client.create_issue(project_key="PROJ", title="Fix login bug")
 
     assert result == {
-        "id": "10001", "key": "PROJ-3", "self": "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue/10001",
+        "id": "10001",
+        "key": "PROJ-3",
+        "self": "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue/10001",
     }
     assert captured["method"] == "POST"
     assert captured["url"] == "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue"
@@ -217,9 +223,19 @@ def test_update_issue_with_all_fields_sends_all_fields(make_client):
 
 def test_get_link_types_returns_parsed_list(make_client):
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"issueLinkTypes": [
-            {"id": "10000", "name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
-        ]})
+        return httpx.Response(
+            200,
+            json={
+                "issueLinkTypes": [
+                    {
+                        "id": "10000",
+                        "name": "Blocks",
+                        "inward": "is blocked by",
+                        "outward": "blocks",
+                    },
+                ]
+            },
+        )
 
     client = make_client(handler)
 
@@ -254,9 +270,18 @@ def test_create_link_sends_correct_request_body(make_client):
 
 def test_get_transitions_returns_parsed_list(make_client):
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"transitions": [
-            {"id": "11", "name": "Start Progress", "to": {"id": "3", "name": "In Progress"}},
-        ]})
+        return httpx.Response(
+            200,
+            json={
+                "transitions": [
+                    {
+                        "id": "11",
+                        "name": "Start Progress",
+                        "to": {"id": "3", "name": "In Progress"},
+                    },
+                ]
+            },
+        )
 
     client = make_client(handler)
 
@@ -281,7 +306,9 @@ def test_do_transition_sends_correct_request_body(make_client):
     client.do_transition("PROJ-1", "11")
 
     assert captured["method"] == "POST"
-    assert captured["url"] == "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue/PROJ-1/transitions"
+    assert (
+        captured["url"] == "https://insight.fsoft.com.vn/jiradc/rest/api/2/issue/PROJ-1/transitions"
+    )
     assert captured["body"] == {"transition": {"id": "11"}}
 
 
@@ -290,22 +317,25 @@ def test_get_create_meta_returns_fields_dict_for_project_and_issue_type(make_cli
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["params"] = dict(request.url.params)
-        return httpx.Response(200, json={
-            "projects": [
-                {
-                    "key": "PROJ",
-                    "issuetypes": [
-                        {
-                            "name": "Task",
-                            "fields": {
-                                "customfield_10008": {"name": "Epic Link"},
-                                "summary": {"name": "Summary"},
-                            },
-                        }
-                    ],
-                }
-            ]
-        })
+        return httpx.Response(
+            200,
+            json={
+                "projects": [
+                    {
+                        "key": "PROJ",
+                        "issuetypes": [
+                            {
+                                "name": "Task",
+                                "fields": {
+                                    "customfield_10008": {"name": "Epic Link"},
+                                    "summary": {"name": "Summary"},
+                                },
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
 
     client = make_client(handler)
 

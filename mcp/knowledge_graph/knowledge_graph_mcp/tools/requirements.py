@@ -1,4 +1,5 @@
 """Specification requirements tools — Flow → UseCase → Document → BR."""
+
 from __future__ import annotations
 
 from mcp.types import ToolAnnotations
@@ -66,9 +67,9 @@ def get_requirements(flow_name: str = "") -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_requirement_detail(
-    br_id:     str,
-    uc_id:     str,
-    doc_type:  str,
+    br_id: str,
+    uc_id: str,
+    doc_type: str,
     flow_name: str = "",
 ) -> str:
     """
@@ -91,8 +92,8 @@ def get_requirement_detail(
         return f"No BR found for {br_id} / {uc_id} / {doc_type} in flow '{flow_name}'."
     lines = [
         f"**[{r['br_id']}] {r['title']}**",
-        f"UC: {r.get('uc_id','')}  |  doc_type: {r.get('doc_type','')}  |  "
-        f"flow: {r.get('flow_name','')}  |  source: {r.get('source_file','')}",
+        f"UC: {r.get('uc_id', '')}  |  doc_type: {r.get('doc_type', '')}  |  "
+        f"flow: {r.get('flow_name', '')}  |  source: {r.get('source_file', '')}",
     ]
     confirmed = r.get("confirmed_categories") or ""
     candidate = r.get("candidate_categories") or ""
@@ -112,10 +113,10 @@ def get_requirement_detail(
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
 def assign_br_category(
-    br_id:      str,
-    uc_id:      str,
-    doc_type:   str,
-    flow_name:  str,
+    br_id: str,
+    uc_id: str,
+    doc_type: str,
+    flow_name: str,
     categories: str,
 ) -> str:
     """

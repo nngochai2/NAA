@@ -1,4 +1,5 @@
 """Entry point: python -m ado_mcp"""
+
 import logging
 
 import uvicorn

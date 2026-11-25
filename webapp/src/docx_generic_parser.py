@@ -8,6 +8,7 @@ Produces ParsedItem instances whose attributes match what
 GraphBuilder.upsert_requirements() accesses (node_id, node_label, req_id,
 title, body, source_file, candidate_categories, named_extractions, metadata).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,8 +22,8 @@ from docx import Document as DocxDocument
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-
 # ── Item model ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ParsedItem:
@@ -30,15 +31,16 @@ class ParsedItem:
     One extracted requirement.  Attribute names match GenericRequirement in
     pipeline/src/models.py so both can be passed to upsert_requirements().
     """
-    node_id_key:          str
-    node_label:           str
-    req_id:               str
-    title:                str
-    body:                 str
-    source_file:          str                  = ""
-    candidate_categories: list[str]            = field(default_factory=list)
-    named_extractions:    dict[str, list[str]] = field(default_factory=dict)
-    metadata:             dict                 = field(default_factory=dict)
+
+    node_id_key: str
+    node_label: str
+    req_id: str
+    title: str
+    body: str
+    source_file: str = ""
+    candidate_categories: list[str] = field(default_factory=list)
+    named_extractions: dict[str, list[str]] = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     @property
     def node_id(self) -> str:
@@ -46,6 +48,7 @@ class ParsedItem:
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
 
 def _parse_flags(flags_str: str | None) -> int:
     if not flags_str:
@@ -84,6 +87,7 @@ def _table_has_matching_row(table: Table, pattern: re.Pattern) -> bool:
 
 # ── Parser ────────────────────────────────────────────────────────────────────
 
+
 class DocxRuleParser:
     """
     Parse a .docx file according to a YAML rule file.
@@ -99,7 +103,7 @@ class DocxRuleParser:
         with rule_path.open(encoding="utf-8") as fh:
             rule: dict[str, Any] = yaml.safe_load(fh)
 
-        self.rule_name  = rule.get("name", rule_path.stem)
+        self.rule_name = rule.get("name", rule_path.stem)
         self.node_label = rule.get("node_label", "Requirement")
         self.warnings: list[str] = []
 
@@ -113,8 +117,8 @@ class DocxRuleParser:
         self._digit_width = int(rule.get("id_digit_width", 2))
 
         # Longest-first alternation so e.g. "BRU" isn't shadowed by a shorter "BR".
-        alternation  = "|".join(re.escape(p) for p in sorted(prefixes, key=len, reverse=True))
-        self._id_re  = re.compile(rf"^(?P<prefix>{alternation})\s*(?P<num>\d+)$", id_flags)
+        alternation = "|".join(re.escape(p) for p in sorted(prefixes, key=len, reverse=True))
+        self._id_re = re.compile(rf"^(?P<prefix>{alternation})\s*(?P<num>\d+)$", id_flags)
 
         # Loose "near miss" shape: a letter-run whose length falls within the
         # configured prefixes' own length range (+2 tolerance) followed by
@@ -124,9 +128,7 @@ class DocxRuleParser:
         # even when a rule file's prefixes don't share a common substring.
         min_len = min(len(p) for p in prefixes)
         max_len = max(len(p) for p in prefixes)
-        self._near_miss_re = re.compile(
-            rf"^[A-Z]{{{min_len},{max_len + 2}}}\s*\d+$", re.IGNORECASE
-        )
+        self._near_miss_re = re.compile(rf"^[A-Z]{{{min_len},{max_len + 2}}}\s*\d+$", re.IGNORECASE)
 
         # Title extraction
         self._title_from = rule.get("title_from", "first_line")
@@ -145,8 +147,8 @@ class DocxRuleParser:
 
         # Context collection config
         ctx = rule.get("context", {})
-        self._ctx_paragraphs     = ctx.get("include_paragraphs", True)
-        self._ctx_non_br_tables  = ctx.get("include_non_br_tables", True)
+        self._ctx_paragraphs = ctx.get("include_paragraphs", True)
+        self._ctx_non_br_tables = ctx.get("include_non_br_tables", True)
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -167,11 +169,11 @@ class DocxRuleParser:
             stored in each item's metadata and used to build a stable node key.
         """
         path = Path(docx_path)
-        doc  = DocxDocument(path)
+        doc = DocxDocument(path)
 
         self.warnings = []
         context = self._collect_context(doc)
-        items   = self._extract_items(doc, path.name, source_label)
+        items = self._extract_items(doc, path.name, source_label)
 
         return items, context
 
@@ -195,7 +197,7 @@ class DocxRuleParser:
                 rows_text = []
                 for row in table.rows:
                     cells = _dedup_merged_cells(row.cells)
-                    line  = "  ".join(c for c in cells if c)
+                    line = "  ".join(c for c in cells if c)
                     if line:
                         rows_text.append(line)
                 if rows_text:
@@ -223,7 +225,7 @@ class DocxRuleParser:
                 continue
 
             for row in table.rows:
-                cells     = _dedup_merged_cells(row.cells)
+                cells = _dedup_merged_cells(row.cells)
                 non_empty = [c for c in cells if c]
                 if len(non_empty) < 2:
                     continue
@@ -238,20 +240,22 @@ class DocxRuleParser:
                     continue
 
                 req_id = self._format_id(m)
-                body   = non_empty[1].strip()
-                title  = self._extract_title(body, fallback=non_empty[0])
+                body = non_empty[1].strip()
+                title = self._extract_title(body, fallback=non_empty[0])
 
-                items.append(ParsedItem(
-                    node_id_key          = f"{self.node_label}::{source_label}::{source_file}::{req_id}",
-                    node_label           = self.node_label,
-                    req_id               = req_id,
-                    title                = title,
-                    body                 = body,
-                    source_file          = source_file,
-                    candidate_categories = self._infer_categories(body),
-                    named_extractions    = self._run_extractions(body),
-                    metadata             = {"source_label": source_label},
-                ))
+                items.append(
+                    ParsedItem(
+                        node_id_key=f"{self.node_label}::{source_label}::{source_file}::{req_id}",
+                        node_label=self.node_label,
+                        req_id=req_id,
+                        title=title,
+                        body=body,
+                        source_file=source_file,
+                        candidate_categories=self._infer_categories(body),
+                        named_extractions=self._run_extractions(body),
+                        metadata={"source_label": source_label},
+                    )
+                )
 
         return items
 
@@ -259,7 +263,7 @@ class DocxRuleParser:
 
     def _format_id(self, match: re.Match) -> str:
         prefix = match.group("prefix")
-        num    = int(match.group("num"))
+        num = int(match.group("num"))
         return f"{prefix}{num:0{self._digit_width}d}"
 
     def _extract_title(self, body: str, fallback: str) -> str:
@@ -275,8 +279,8 @@ class DocxRuleParser:
         result: dict[str, list[str]] = {}
         for ext in self._extractions:
             pattern: re.Pattern = ext["_re"]
-            group               = ext.get("group", 0)
-            transform           = ext.get("transform", "")
+            group = ext.get("group", 0)
+            transform = ext.get("transform", "")
 
             matches = [m.group(group) for m in pattern.finditer(body)]
 

@@ -1,4 +1,5 @@
 """GitLab provider — wraps python-gitlab."""
+
 from __future__ import annotations
 
 import os
@@ -10,16 +11,15 @@ import gitlab.exceptions
 
 @lru_cache(maxsize=1)
 def _get_client() -> gitlab.Gitlab:
-    url   = os.environ.get("GITLAB_URL", "https://gitlab.com")
+    url = os.environ.get("GITLAB_URL", "https://gitlab.com")
     token = os.environ.get("GITLAB_TOKEN")
-    ssl   = os.environ.get("GITLAB_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
+    ssl = os.environ.get("GITLAB_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
     if not token:
         raise RuntimeError("GITLAB_TOKEN is not set")
     return gitlab.Gitlab(url, private_token=token, ssl_verify=ssl)
 
 
 class GitLabProvider:
-
     def resolve_repo_id(self, arguments: dict) -> str:
         rid = arguments.get("repo_id") or os.environ.get("GITLAB_PROJECT_ID", "")
         if not rid:
@@ -31,7 +31,9 @@ class GitLabProvider:
 
     # ── Issues ──────────────────────────────────────────────────────────────
 
-    def list_issues(self, repo, *, state="opened", labels=None, assignee=None, search=None, per_page=20) -> list[dict]:
+    def list_issues(
+        self, repo, *, state="opened", labels=None, assignee=None, search=None, per_page=20
+    ) -> list[dict]:
         kwargs: dict = {"state": state, "per_page": per_page}
         if labels:
             kwargs["labels"] = labels
@@ -44,7 +46,17 @@ class GitLabProvider:
     def get_issue(self, repo, issue_number: int) -> dict:
         return self._issue_detail(repo.issues.get(issue_number))
 
-    def create_issue(self, repo, *, title, description=None, labels=None, assignees=None, milestone_id=None, due_date=None) -> dict:
+    def create_issue(
+        self,
+        repo,
+        *,
+        title,
+        description=None,
+        labels=None,
+        assignees=None,
+        milestone_id=None,
+        due_date=None,
+    ) -> dict:
         data: dict = {"title": title}
         if description:
             data["description"] = description
@@ -58,7 +70,17 @@ class GitLabProvider:
             data["due_date"] = due_date
         return self._issue_summary(repo.issues.create(data))
 
-    def update_issue(self, repo, issue_number: int, *, title=None, description=None, labels=None, state_event=None, assignees=None) -> dict:
+    def update_issue(
+        self,
+        repo,
+        issue_number: int,
+        *,
+        title=None,
+        description=None,
+        labels=None,
+        state_event=None,
+        assignees=None,
+    ) -> dict:
         issue = repo.issues.get(issue_number)
         if title is not None:
             issue.title = title
@@ -83,18 +105,32 @@ class GitLabProvider:
         repo.issues.get(issue_number).delete()
         return f"Issue #{issue_number} deleted."
 
-    def link_issues(self, repo, issue_number: int, target_issue_number: int, link_type: str = "relates_to") -> str:
+    def link_issues(
+        self, repo, issue_number: int, target_issue_number: int, link_type: str = "relates_to"
+    ) -> str:
         issue = repo.issues.get(issue_number)
-        issue.links.create({
-            "target_project_id": repo.id,
-            "target_issue_iid":  target_issue_number,
-            "link_type":         link_type,
-        })
+        issue.links.create(
+            {
+                "target_project_id": repo.id,
+                "target_issue_iid": target_issue_number,
+                "link_type": link_type,
+            }
+        )
         return f"Issue #{issue_number} linked to #{target_issue_number} ({link_type})."
 
     # ── Pull requests (Merge Requests) ───────────────────────────────────────
 
-    def list_pull_requests(self, repo, *, state="opened", source_branch=None, target_branch=None, author=None, search=None, per_page=20) -> list[dict]:
+    def list_pull_requests(
+        self,
+        repo,
+        *,
+        state="opened",
+        source_branch=None,
+        target_branch=None,
+        author=None,
+        search=None,
+        per_page=20,
+    ) -> list[dict]:
         kwargs: dict = {"state": state, "per_page": per_page}
         if source_branch:
             kwargs["source_branch"] = source_branch
@@ -122,11 +158,11 @@ class GitLabProvider:
         for d in mr.discussions.list():
             notes = [
                 {
-                    "author":     note.get("author", {}).get("username"),
-                    "body":       note.get("body"),
+                    "author": note.get("author", {}).get("username"),
+                    "body": note.get("body"),
                     "created_at": note.get("created_at"),
                     "resolvable": note.get("resolvable"),
-                    "resolved":   note.get("resolved"),
+                    "resolved": note.get("resolved"),
                 }
                 for note in d.attributes.get("notes", [])
             ]
@@ -134,7 +170,7 @@ class GitLabProvider:
         return result
 
     def create_pull_request_note(self, repo, pr_number: int, body: str) -> dict:
-        mr   = repo.mergerequests.get(pr_number)
+        mr = repo.mergerequests.get(pr_number)
         note = mr.notes.create({"body": body})
         return {"id": note.id, "author": note.author.get("username"), "body": note.body}
 
@@ -142,8 +178,10 @@ class GitLabProvider:
         repo.mergerequests.get(pr_number).approve()
         return f"Merge request !{pr_number} approved."
 
-    def merge_pull_request(self, repo, pr_number: int, *, message=None, squash=False, remove_source=False) -> str:
-        mr     = repo.mergerequests.get(pr_number)
+    def merge_pull_request(
+        self, repo, pr_number: int, *, message=None, squash=False, remove_source=False
+    ) -> str:
+        mr = repo.mergerequests.get(pr_number)
         kwargs: dict = {}
         if message:
             kwargs["merge_commit_message"] = message
@@ -157,7 +195,7 @@ class GitLabProvider:
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _resolve_user_ids(self, usernames: list[str]) -> list[int]:
-        gl  = _get_client()
+        gl = _get_client()
         ids = []
         for username in usernames:
             users = gl.users.list(username=username)
@@ -167,53 +205,57 @@ class GitLabProvider:
 
     def _issue_summary(self, issue) -> dict:
         return {
-            "number":     issue.iid,
-            "title":      issue.title,
-            "state":      issue.state,
-            "author":     issue.author.get("username") if issue.author else None,
-            "assignees":  [a.get("username") for a in (issue.assignees or [])],
-            "labels":     issue.labels,
+            "number": issue.iid,
+            "title": issue.title,
+            "state": issue.state,
+            "author": issue.author.get("username") if issue.author else None,
+            "assignees": [a.get("username") for a in (issue.assignees or [])],
+            "labels": issue.labels,
             "created_at": issue.created_at,
             "updated_at": issue.updated_at,
-            "web_url":    issue.web_url,
+            "web_url": issue.web_url,
         }
 
     def _issue_detail(self, issue) -> dict:
         d = self._issue_summary(issue)
-        d.update({
-            "description": issue.description,
-            "milestone":   issue.milestone.get("title") if issue.milestone else None,
-            "due_date":    getattr(issue, "due_date", None),
-            "closed_at":   getattr(issue, "closed_at", None),
-            "notes_count": issue.user_notes_count,
-        })
+        d.update(
+            {
+                "description": issue.description,
+                "milestone": issue.milestone.get("title") if issue.milestone else None,
+                "due_date": getattr(issue, "due_date", None),
+                "closed_at": getattr(issue, "closed_at", None),
+                "notes_count": issue.user_notes_count,
+            }
+        )
         return d
 
     def _pr_summary(self, mr) -> dict:
         return {
-            "number":        mr.iid,
-            "title":         mr.title,
-            "state":         mr.state,
+            "number": mr.iid,
+            "title": mr.title,
+            "state": mr.state,
             "source_branch": mr.source_branch,
             "target_branch": mr.target_branch,
-            "author":        mr.author.get("username") if mr.author else None,
-            "assignees":     [a.get("username") for a in (mr.assignees or [])],
-            "reviewers":     [r.get("username") for r in (getattr(mr, "reviewers", []) or [])],
-            "labels":        mr.labels,
-            "draft":         mr.draft,
-            "created_at":    mr.created_at,
-            "updated_at":    mr.updated_at,
-            "web_url":       mr.web_url,
+            "author": mr.author.get("username") if mr.author else None,
+            "assignees": [a.get("username") for a in (mr.assignees or [])],
+            "reviewers": [r.get("username") for r in (getattr(mr, "reviewers", []) or [])],
+            "labels": mr.labels,
+            "draft": mr.draft,
+            "created_at": mr.created_at,
+            "updated_at": mr.updated_at,
+            "web_url": mr.web_url,
         }
 
     def _pr_detail(self, mr) -> dict:
         d = self._pr_summary(mr)
-        d.update({
-            "description":   mr.description,
-            "merge_status":  mr.merge_status,
-            "sha":           mr.sha,
-            "squash":        mr.squash,
-            "notes_count":   mr.user_notes_count,
-            "changes_count": getattr(mr, "changes_count", None),
-        })
+        d.update(
+            {
+                "description": mr.description,
+                "merge_status": mr.merge_status,
+                "sha": mr.sha,
+                "squash": mr.squash,
+                "notes_count": mr.user_notes_count,
+                "changes_count": getattr(mr, "changes_count", None),
+            }
+        )
         return d

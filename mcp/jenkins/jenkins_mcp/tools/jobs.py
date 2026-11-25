@@ -1,4 +1,5 @@
 """Jenkins job tools."""
+
 from __future__ import annotations
 
 from ..client import job_path
@@ -12,8 +13,7 @@ _JOB_STATUS_TREE = (
     "healthReport[description,score]"
 )
 _PARAMS_TREE = (
-    "property[parameterDefinitions[name,type,description,"
-    "defaultParameterValue[value],choices]]"
+    "property[parameterDefinitions[name,type,description,defaultParameterValue[value],choices]]"
 )
 _NAME_ARG = {"type": "string", "description": "Name of the new job (no slashes)."}
 _FOLDER_ARG = {
@@ -29,7 +29,12 @@ def _item_status(job: dict) -> dict:
 @tool(
     "jenkins_list_jobs",
     "List jobs (and folders) directly under the Jenkins root or a folder.",
-    {"folder": {"type": "string", "description": "Folder full name, e.g. 'team/app'. Omit for the root."}},
+    {
+        "folder": {
+            "type": "string",
+            "description": "Folder full name, e.g. 'team/app'. Omit for the root.",
+        }
+    },
     read_only=True,
 )
 def list_jobs(client, args):
@@ -41,7 +46,10 @@ def list_jobs(client, args):
     "jenkins_search_jobs",
     "Find jobs whose full name contains the query (case-insensitive), searching up to 3 folder levels deep.",
     {
-        "query": {"type": "string", "description": "Substring to match against the job's full name."},
+        "query": {
+            "type": "string",
+            "description": "Substring to match against the job's full name.",
+        },
         "folder": {"type": "string", "description": "Folder to search under. Omit for the root."},
     },
     ["query"],
@@ -131,7 +139,11 @@ def get_job_config(client, args):
 @tool(
     "jenkins_create_job",
     "Create a job from a config.xml document.",
-    {"name": _NAME_ARG, "folder": _FOLDER_ARG, "config_xml": {"type": "string", "description": "Full config.xml content."}},
+    {
+        "name": _NAME_ARG,
+        "folder": _FOLDER_ARG,
+        "config_xml": {"type": "string", "description": "Full config.xml content."},
+    },
     ["name", "config_xml"],
 )
 def create_job(client, args):
@@ -147,7 +159,10 @@ def create_job(client, args):
 @tool(
     "jenkins_update_job_config",
     "Replace a job's config.xml. Fetch the current one with jenkins_get_job_config first and edit it.",
-    {**JOB, "config_xml": {"type": "string", "description": "Full replacement config.xml content."}},
+    {
+        **JOB,
+        "config_xml": {"type": "string", "description": "Full replacement config.xml content."},
+    },
     ["job_name", "config_xml"],
     destructive=True,
 )
@@ -184,6 +199,10 @@ def rename_job(client, args):
 def copy_job(client, args):
     client.post(
         f"{job_path(args.get('folder', ''))}/createItem",
-        params={"name": args["new_name"], "mode": "copy", "from": "/" + args["source_job"].strip("/")},
+        params={
+            "name": args["new_name"],
+            "mode": "copy",
+            "from": "/" + args["source_job"].strip("/"),
+        },
     )
     return fmt({"message": f"Job '{args['source_job']}' copied to '{args['new_name']}'."})

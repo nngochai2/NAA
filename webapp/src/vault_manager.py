@@ -3,21 +3,22 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .schemas import VaultInfo
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ── Vault validation ───────────────────────────────────────────────────────────
 
+
 class VaultValidationError(Exception):
     def __init__(self, code: str, message: str, details: dict | None = None):
-        self.code    = code
+        self.code = code
         self.message = message
         self.details = details or {}
         super().__init__(message)
@@ -64,6 +65,7 @@ def validate_vault_path(path: str) -> Path:
 
 # ── VaultManager ───────────────────────────────────────────────────────────────
 
+
 class VaultManager:
     """Per-session vault state stored entirely in memory."""
 
@@ -72,7 +74,7 @@ class VaultManager:
 
     def connect(self, vault_path: str, display_name: str | None = None) -> VaultInfo:
         resolved = validate_vault_path(vault_path)
-        now  = _now()
+        now = _now()
         name = display_name or resolved.name
         self._info = VaultInfo(
             path=str(resolved),

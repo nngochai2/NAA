@@ -1,4 +1,5 @@
 """Table / view metadata tools: columns, view DDL, object inventory, constraints, indexes."""
+
 from __future__ import annotations
 
 import oracledb
@@ -23,7 +24,7 @@ async def describe_object(object_name: str, schema: str | None = None) -> str:
     schema      : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
     owner = resolve_schema(schema)
-    name  = object_name.upper()
+    name = object_name.upper()
 
     col_sql = """
         SELECT
@@ -72,11 +73,13 @@ async def describe_object(object_name: str, schema: str | None = None) -> str:
                 f"{owner}.{name} not found or no columns accessible to {get_config().user}."
             )
 
-        return to_json({
-            "object":  f"{owner}.{name}",
-            "comment": table_comment,
-            "columns": columns,
-        })
+        return to_json(
+            {
+                "object": f"{owner}.{name}",
+                "comment": table_comment,
+                "columns": columns,
+            }
+        )
     except oracledb.DatabaseError as exc:
         return tool_error(f"Oracle error: {exc}")
 
@@ -101,7 +104,7 @@ async def get_view_definition(view_name: str, schema: str | None = None) -> str:
     schema    : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
     owner = resolve_schema(schema)
-    name  = view_name.upper()
+    name = view_name.upper()
 
     try:
         with db.conn() as conn:
@@ -111,7 +114,8 @@ async def get_view_definition(view_name: str, schema: str | None = None) -> str:
             try:
                 cur.execute(
                     "SELECT DBMS_METADATA.GET_DDL('VIEW', :n, :o) FROM dual",
-                    n=name, o=owner,
+                    n=name,
+                    o=owner,
                 )
                 row = cur.fetchone()
                 if row and row[0]:
@@ -119,14 +123,17 @@ async def get_view_definition(view_name: str, schema: str | None = None) -> str:
             except oracledb.DatabaseError as exc:
                 db.logger.warning(
                     "DBMS_METADATA unavailable for %s.%s (%s) — using ALL_VIEWS fallback",
-                    owner, name, exc,
+                    owner,
+                    name,
+                    exc,
                 )
 
             # ── Fallback: ALL_VIEWS.TEXT (LONG column) ────────────────────────
             cur.outputtypehandler = db.long_to_str
             cur.execute(
                 "SELECT text FROM all_views WHERE owner = :o AND view_name = :n",
-                o=owner, n=name,
+                o=owner,
+                n=name,
             )
             row = cur.fetchone()
             if row and row[0]:
@@ -141,7 +148,7 @@ async def get_view_definition(view_name: str, schema: str | None = None) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def list_objects(
-    schema:      str | None = None,
+    schema: str | None = None,
     object_type: str | None = None,
     name_filter: str | None = None,
 ) -> str:
@@ -157,7 +164,7 @@ async def list_objects(
     name_filter : Partial object name (LIKE match, case-insensitive).
                   Example: 'INV' matches INV_HEADER, INVOICE_LINES, etc.
     """
-    owner      = resolve_schema(schema)
+    owner = resolve_schema(schema)
     conditions = ["owner = :owner"]
     binds: dict = {"owner": owner}
 
@@ -200,7 +207,7 @@ async def get_constraints(object_name: str, schema: str | None = None) -> str:
     schema      : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
     owner = resolve_schema(schema)
-    name  = object_name.upper()
+    name = object_name.upper()
 
     # Oracle 11g has LISTAGG — safe to use.
     sql = """
@@ -260,7 +267,7 @@ async def get_indexes(object_name: str, schema: str | None = None) -> str:
     schema      : Owner schema.  Defaults to ORACLE_DEFAULT_SCHEMA from .env.
     """
     owner = resolve_schema(schema)
-    name  = object_name.upper()
+    name = object_name.upper()
 
     sql = """
         SELECT

@@ -1,4 +1,5 @@
 """Jenkins REST client (JSON API plus the few text/XML endpoints Jenkins serves)."""
+
 from __future__ import annotations
 
 import re

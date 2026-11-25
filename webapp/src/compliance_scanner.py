@@ -69,15 +69,15 @@ class ComplianceScanner:
         Scan a folder for compliance. Results are stored in the cache and
         pushed into the tree node. Returns counts dict or None if not found.
         """
-        node     = self._tree.get_folder(folder_id)
+        node = self._tree.get_folder(folder_id)
         abs_path = self._tree.get_folder_path(folder_id)
-        vault    = self._tree.vault_root()
+        vault = self._tree.vault_root()
 
         if not node or not abs_path or not vault:
             return None
 
         counts = {"compliant": 0, "legacy": 0, "unrecognized": 0}
-        glob   = abs_path.rglob("*.md") if recursive else abs_path.glob("*.md")
+        glob = abs_path.rglob("*.md") if recursive else abs_path.glob("*.md")
 
         try:
             for md in glob:
@@ -100,9 +100,13 @@ class ComplianceScanner:
         """Scan every folder in the tree (runs in the calling thread)."""
         for fid in self._tree.all_folder_ids():
             if fid not in self._cache:
-                self.scan_folder(fid, recursive=False)  # non-recursive; each folder scans its own files
+                self.scan_folder(
+                    fid, recursive=False
+                )  # non-recursive; each folder scans its own files
 
-    def get_report(self, scope: str, folder_id: str | None = None) -> ComplianceReportResponse | None:
+    def get_report(
+        self, scope: str, folder_id: str | None = None
+    ) -> ComplianceReportResponse | None:
         vault = self._tree.vault_root()
         if not vault:
             return None
@@ -113,7 +117,7 @@ class ComplianceScanner:
                 return None
             counts = self._cache.get(folder_id, {"compliant": 0, "legacy": 0, "unrecognized": 0})
             total = sum(counts.values())
-            pct   = round(counts["compliant"] / total * 100, 2) if total else 0.0
+            pct = round(counts["compliant"] / total * 100, 2) if total else 0.0
             return ComplianceReportResponse(
                 scope="folder",
                 total_documents=total,
@@ -132,36 +136,40 @@ class ComplianceScanner:
         else:
             folder_ids = self._tree.all_folder_ids()
 
-        total = c = l = u = 0
+        total = compliant = legacy = unrecognized = 0
         for fid in folder_ids:
             counts = self._cache.get(fid, {})
             total += sum(counts.values())
-            c     += counts.get("compliant", 0)
-            l     += counts.get("legacy", 0)
-            u     += counts.get("unrecognized", 0)
+            compliant += counts.get("compliant", 0)
+            legacy += counts.get("legacy", 0)
+            unrecognized += counts.get("unrecognized", 0)
 
-        pct = round(c / total * 100, 2) if total else 0.0
+        pct = round(compliant / total * 100, 2) if total else 0.0
         return ComplianceReportResponse(
             scope=scope,
             total_documents=total,
-            compliance_stats=ComplianceStats(compliant=c, legacy=l, unrecognized=u),
+            compliance_stats=ComplianceStats(
+                compliant=compliant, legacy=legacy, unrecognized=unrecognized
+            ),
             compliance_percentage=pct,
             color_indicator=_color_indicator(pct),
         )
 
     def get_selection_report(self, selected_folder_ids: list[str]) -> ComplianceReportResponse:
-        total = c = l = u = 0
+        total = compliant = legacy = unrecognized = 0
         for fid in selected_folder_ids:
             counts = self._cache.get(fid, {})
             total += sum(counts.values())
-            c     += counts.get("compliant", 0)
-            l     += counts.get("legacy", 0)
-            u     += counts.get("unrecognized", 0)
-        pct = round(c / total * 100, 2) if total else 0.0
+            compliant += counts.get("compliant", 0)
+            legacy += counts.get("legacy", 0)
+            unrecognized += counts.get("unrecognized", 0)
+        pct = round(compliant / total * 100, 2) if total else 0.0
         return ComplianceReportResponse(
             scope="selection",
             total_documents=total,
-            compliance_stats=ComplianceStats(compliant=c, legacy=l, unrecognized=u),
+            compliance_stats=ComplianceStats(
+                compliant=compliant, legacy=legacy, unrecognized=unrecognized
+            ),
             compliance_percentage=pct,
             color_indicator=_color_indicator(pct),
         )
@@ -176,8 +184,11 @@ class ComplianceScanner:
         vault = self._tree.vault_root()
         if not vault:
             return NonCompliantResponse(
-                non_compliant_documents=[], total_count=0,
-                returned_count=0, limit=limit, offset=offset,
+                non_compliant_documents=[],
+                total_count=0,
+                returned_count=0,
+                limit=limit,
+                offset=offset,
             )
 
         folder_ids = [folder_id] if folder_id else self._tree.all_folder_ids()
@@ -185,7 +196,7 @@ class ComplianceScanner:
 
         for fid in folder_ids:
             abs_path = self._tree.get_folder_path(fid)
-            node     = self._tree.get_folder(fid)
+            node = self._tree.get_folder(fid)
             if not abs_path or not node:
                 continue
             for md in sorted(abs_path.glob("*.md")):
@@ -195,23 +206,25 @@ class ComplianceScanner:
                 if fmt_filter != "all" and fc.value.lower() != fmt_filter.lower():
                     continue
                 rel = str(md.relative_to(vault)).replace("\\", "/")
-                results.append(NonCompliantDocument(
-                    id=rel,
-                    filename=md.name,
-                    relative_path=rel,
-                    folder_id=fid,
-                    size_bytes=md.stat().st_size,
-                    modified_at=str(md.stat().st_mtime),
-                    format_compliance=fc,
-                    reason=(
-                        "Contains legacy custom header format"
-                        if fc == FormatCompliance.LEGACY
-                        else "No recognized header format detected"
-                    ),
-                ))
+                results.append(
+                    NonCompliantDocument(
+                        id=rel,
+                        filename=md.name,
+                        relative_path=rel,
+                        folder_id=fid,
+                        size_bytes=md.stat().st_size,
+                        modified_at=str(md.stat().st_mtime),
+                        format_compliance=fc,
+                        reason=(
+                            "Contains legacy custom header format"
+                            if fc == FormatCompliance.LEGACY
+                            else "No recognized header format detected"
+                        ),
+                    )
+                )
 
         total = len(results)
-        page  = results[offset : offset + limit]
+        page = results[offset : offset + limit]
         return NonCompliantResponse(
             non_compliant_documents=page,
             total_count=total,

@@ -1,4 +1,5 @@
 """Jira issue tools."""
+
 from __future__ import annotations
 
 import json
@@ -38,10 +39,17 @@ ISSUE_TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "status": {"type": "string", "description": "Filter by workflow status name, e.g. 'In Progress'."},
+                "status": {
+                    "type": "string",
+                    "description": "Filter by workflow status name, e.g. 'In Progress'.",
+                },
                 "label": {"type": "string", "description": "Filter by label."},
                 "assignee": {"type": "string", "description": "Filter by assignee username."},
-                "per_page": {"type": "integer", "description": "Maximum number of issues to return.", "default": 20},
+                "per_page": {
+                    "type": "integer",
+                    "description": "Maximum number of issues to return.",
+                    "default": 20,
+                },
             },
             "required": [],
         },
@@ -52,15 +60,26 @@ ISSUE_TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "title":       {"type": "string", "description": "Issue summary/title."},
-                "description": {"type": "string", "description": "Issue description (plain text / wiki markup)."},
-                "issue_type":  {"type": "string", "description": "Jira issue type name.", "default": "Task"},
-                "labels":      {"type": "array", "items": {"type": "string"}},
-                "assignee":    {"type": "string", "description": "Assignee username."},
-                "priority":    {"type": "string", "description": "Priority name, e.g. 'High'."},
-                "parent_key":  {"type": "string", "description": "Issue key to link this issue to as its parent."},
-                "components":  {
-                    "type": "array", "items": {"type": "string"},
+                "title": {"type": "string", "description": "Issue summary/title."},
+                "description": {
+                    "type": "string",
+                    "description": "Issue description (plain text / wiki markup).",
+                },
+                "issue_type": {
+                    "type": "string",
+                    "description": "Jira issue type name.",
+                    "default": "Task",
+                },
+                "labels": {"type": "array", "items": {"type": "string"}},
+                "assignee": {"type": "string", "description": "Assignee username."},
+                "priority": {"type": "string", "description": "Priority name, e.g. 'High'."},
+                "parent_key": {
+                    "type": "string",
+                    "description": "Issue key to link this issue to as its parent.",
+                },
+                "components": {
+                    "type": "array",
+                    "items": {"type": "string"},
                     "description": "Component names, e.g. ['Backend', 'API'].",
                 },
                 "due_date": {"type": "string", "description": "Due date in 'YYYY-MM-DD' format."},
@@ -82,12 +101,12 @@ ISSUE_TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "issue_key":   {"type": "string", "description": "Jira issue key, e.g. 'PROJ-123'."},
-                "title":       {"type": "string"},
+                "issue_key": {"type": "string", "description": "Jira issue key, e.g. 'PROJ-123'."},
+                "title": {"type": "string"},
                 "description": {"type": "string"},
-                "labels":      {"type": "array", "items": {"type": "string"}},
-                "assignee":    {"type": "string"},
-                "priority":    {"type": "string"},
+                "labels": {"type": "array", "items": {"type": "string"}},
+                "assignee": {"type": "string"},
+                "priority": {"type": "string"},
             },
             "required": ["issue_key"],
         },
@@ -98,9 +117,12 @@ ISSUE_TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "issue_key":        {"type": "string", "description": "Source issue key."},
+                "issue_key": {"type": "string", "description": "Source issue key."},
                 "target_issue_key": {"type": "string", "description": "Target issue key."},
-                "link_type":        {"type": "string", "description": "Link type name, e.g. 'Blocks' or 'Relates'."},
+                "link_type": {
+                    "type": "string",
+                    "description": "Link type name, e.g. 'Blocks' or 'Relates'.",
+                },
             },
             "required": ["issue_key", "target_issue_key", "link_type"],
         },
@@ -111,8 +133,11 @@ ISSUE_TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "issue_key":     {"type": "string", "description": "Jira issue key, e.g. 'PROJ-123'."},
-                "target_status": {"type": "string", "description": "Target status name, e.g. 'In Progress'."},
+                "issue_key": {"type": "string", "description": "Jira issue key, e.g. 'PROJ-123'."},
+                "target_status": {
+                    "type": "string",
+                    "description": "Target status name, e.g. 'In Progress'.",
+                },
             },
             "required": ["issue_key", "target_status"],
         },
@@ -128,7 +153,9 @@ def _err(msg: str) -> list[TextContent]:
     return [TextContent(type="text", text=f"Error: {msg}")]
 
 
-def _resolve_parent(client: JiraClient, issue_type: str, parent_key: str, fields_meta: dict) -> dict:
+def _resolve_parent(
+    client: JiraClient, issue_type: str, parent_key: str, fields_meta: dict
+) -> dict:
     """Fetches whatever Jira metadata is needed, then delegates the actual
     parent-linking decision to hierarchy.resolve_parent_strategy (ADR 0001 + ADR 0003)."""
     if issue_type.lower() == "sub-task":
@@ -160,19 +187,23 @@ def _provided_standard_field_ids(arguments: dict) -> set[str]:
     return ids
 
 
-def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_key: str) -> list[TextContent]:
+def handle_issue_tool(
+    name: str, arguments: dict, client: JiraClient, project_key: str
+) -> list[TextContent]:
     try:
         if name == "jira_get_issue":
             return _fmt(client.get_issue(arguments["issue_key"]))
 
         if name == "jira_list_issues":
-            return _fmt(client.list_issues(
-                project_key=project_key,
-                status=arguments.get("status"),
-                label=arguments.get("label"),
-                assignee=arguments.get("assignee"),
-                per_page=int(arguments.get("per_page", 20)),
-            ))
+            return _fmt(
+                client.list_issues(
+                    project_key=project_key,
+                    status=arguments.get("status"),
+                    label=arguments.get("label"),
+                    assignee=arguments.get("assignee"),
+                    per_page=int(arguments.get("per_page", 20)),
+                )
+            )
 
         if name == "jira_create_issue":
             issue_type = arguments.get("issue_type", "Task")
@@ -233,7 +264,11 @@ def handle_issue_tool(name: str, arguments: dict, client: JiraClient, project_ke
             target_issue_key = arguments["target_issue_key"]
             link_type_id = resolve_link_type_id(arguments["link_type"], client.get_link_types())
             client.create_link(issue_key, target_issue_key, link_type_id)
-            return _fmt({"message": f"Linked {issue_key} to {target_issue_key} as '{arguments['link_type']}'."})
+            return _fmt(
+                {
+                    "message": f"Linked {issue_key} to {target_issue_key} as '{arguments['link_type']}'."
+                }
+            )
 
         if name == "jira_transition_issue":
             issue_key = arguments["issue_key"]

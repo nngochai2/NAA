@@ -1,4 +1,5 @@
 """Entry point: python -m knowledge_graph_mcp"""
+
 from .config import get_config
 from .server import mcp
 

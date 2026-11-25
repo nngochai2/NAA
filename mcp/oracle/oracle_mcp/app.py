@@ -1,4 +1,5 @@
 """The FastMCP instance shared by all tool modules, plus JSON result helpers."""
+
 from __future__ import annotations
 
 import json

@@ -2,6 +2,7 @@
 
 The DB user is read-only too; this is the second line of defence.
 """
+
 from __future__ import annotations
 
 import re

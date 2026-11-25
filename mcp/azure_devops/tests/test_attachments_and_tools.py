@@ -17,11 +17,13 @@ def _with_attachments(ado, *files):
     """Register a work item 5 with AttachedFile relations and their download bodies."""
     relations = [{"rel": "System.LinkTypes.Related", "url": f"{BASE}/_apis/wit/workitems/6"}]
     for i, (name, body) in enumerate(files):
-        relations.append({
-            "rel": "AttachedFile",
-            "url": f"{BASE}/_apis/wit/attachments/{i}",
-            "attributes": {"name": name, "resourceSize": len(body), "comment": f"c{i}"},
-        })
+        relations.append(
+            {
+                "rel": "AttachedFile",
+                "url": f"{BASE}/_apis/wit/attachments/{i}",
+                "attributes": {"name": name, "resourceSize": len(body), "comment": f"c{i}"},
+            }
+        )
         ado.add("GET", ATTACHMENT_PATH.format(i), content=body)
     ado.add("GET", wi_path("workitems/5"), {"relations": relations})
 
@@ -53,12 +55,17 @@ def _xlsx_bytes():
 
 # ── attachments ───────────────────────────────────────────────────────────────
 
+
 def test_list_attachments_only_returns_attached_files(client, ado):
     _with_attachments(ado, ("spec.docx", b"x"))
-    assert attachments.list_attachments(client, 5) == [{
-        "name": "spec.docx", "size_bytes": 1, "comment": "c0",
-        "url": f"{BASE}/_apis/wit/attachments/0",
-    }]
+    assert attachments.list_attachments(client, 5) == [
+        {
+            "name": "spec.docx",
+            "size_bytes": 1,
+            "comment": "c0",
+            "url": f"{BASE}/_apis/wit/attachments/0",
+        }
+    ]
     assert ado.requests[-1].url.params["$expand"] == "relations"
 
 
@@ -98,11 +105,14 @@ def test_image_over_limit_is_rejected(client, ado, monkeypatch):
     assert "over the 4-byte limit" in attachments.read_attachment(client, 5, "big.jpg")["error"]
 
 
-@pytest.mark.parametrize("files, filename, expected", [
-    ((("notes.txt", b"x"),), "notes.txt", "Unsupported file type '.txt'"),
-    ((("Makefile", b"x"),), "Makefile", "Unsupported file type '.'"),
-    ((), "missing.docx", "No attachment named 'missing.docx' found on work item 5"),
-])
+@pytest.mark.parametrize(
+    "files, filename, expected",
+    [
+        ((("notes.txt", b"x"),), "notes.txt", "Unsupported file type '.txt'"),
+        ((("Makefile", b"x"),), "Makefile", "Unsupported file type '.'"),
+        ((), "missing.docx", "No attachment named 'missing.docx' found on work item 5"),
+    ],
+)
 def test_read_attachment_errors_do_not_download(client, ado, files, filename, expected):
     _with_attachments(ado, *files)
     assert expected in attachments.read_attachment(client, 5, filename)["error"]
@@ -111,15 +121,21 @@ def test_read_attachment_errors_do_not_download(client, ado, files, filename, ex
 
 # ── tool dispatch ─────────────────────────────────────────────────────────────
 
+
 def _call(client, name, args):
     return asyncio.run(handle_tool(client, name, args))
 
 
 def test_list_tools():
     names = [t.name for t in asyncio.run(list_tools())]
-    assert names == ["get_work_item", "search_work_items", "get_work_item_comments",
-                     "get_related_items", "list_work_item_attachments",
-                     "read_work_item_attachment"]
+    assert names == [
+        "get_work_item",
+        "search_work_items",
+        "get_work_item_comments",
+        "get_related_items",
+        "list_work_item_attachments",
+        "read_work_item_attachment",
+    ]
 
 
 def test_image_attachment_becomes_image_content(client, ado):

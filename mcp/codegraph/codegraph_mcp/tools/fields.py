@@ -8,7 +8,9 @@ def get_field_impact(field_name: str, class_name: str) -> str:
     if class_name is None:
         return message
 
-    rows = graph_client.run_query(queries.FIELD_IMPACT, {"fieldName": field_name, "className": class_name})
+    rows = graph_client.run_query(
+        queries.FIELD_IMPACT, {"fieldName": field_name, "className": class_name}
+    )
 
     if not rows:
         return (
@@ -19,7 +21,9 @@ def get_field_impact(field_name: str, class_name: str) -> str:
     reads = [r for r in rows if r["access"] == "READS"]
     writes = [r for r in rows if r["access"] == "WRITES"]
 
-    lines = [f"Field '{field_name}' on '{class_name}' — {len(reads)} reader(s), {len(writes)} writer(s):\n"]
+    lines = [
+        f"Field '{field_name}' on '{class_name}' — {len(reads)} reader(s), {len(writes)} writer(s):\n"
+    ]
 
     if reads:
         lines.append("  READS:")

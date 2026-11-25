@@ -4,21 +4,20 @@ Spec-doc ingest test suite.
 Cycles 1-5  test DocxRuleParser in isolation (no network).
 Cycles 6-9  test the graph write path against a real Neo4j instance.
 """
-import pytest
-from pathlib import Path
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PARSER TESTS (no Neo4j)
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestDocxRuleParser:
 
+class TestDocxRuleParser:
     # ── Cycle 1 — tracer bullet ───────────────────────────────────────────────
 
     def test_br_rows_extracted_with_normalised_ids(self, rule_path, sample_docx):
         """BR04, BR 23 → BR04, BR23; BR07 stays BR07."""
         from src.docx_generic_parser import DocxRuleParser
+
         items, _ = DocxRuleParser(rule_path).parse(sample_docx)
         ids = {i.req_id for i in items}
         assert ids == {"BR04", "BR23", "BR07"}
@@ -27,6 +26,7 @@ class TestDocxRuleParser:
 
     def test_title_taken_from_first_body_line(self, rule_path, sample_docx):
         from src.docx_generic_parser import DocxRuleParser
+
         items, _ = DocxRuleParser(rule_path).parse(sample_docx)
         br04 = next(i for i in items if i.req_id == "BR04")
         assert br04.title == "First line of BR04"
@@ -35,41 +35,47 @@ class TestDocxRuleParser:
 
     def test_category_signals_matched_per_body(self, rule_path, sample_docx):
         from src.docx_generic_parser import DocxRuleParser
+
         items, _ = DocxRuleParser(rule_path).parse(sample_docx)
         by_id = {i.req_id: i for i in items}
 
-        assert "SQLView"   in by_id["BR04"].candidate_categories
+        assert "SQLView" in by_id["BR04"].candidate_categories
         assert "OracleEBS" in by_id["BR23"].candidate_categories
-        assert "BatchJob"  in by_id["BR07"].candidate_categories
-        assert "Java"      in by_id["BR07"].candidate_categories
+        assert "BatchJob" in by_id["BR07"].candidate_categories
+        assert "Java" in by_id["BR07"].candidate_categories
 
     # ── Cycle 4 ───────────────────────────────────────────────────────────────
 
     def test_named_extractions_deduped_and_sorted(self, rule_path, sample_docx):
         from src.docx_generic_parser import DocxRuleParser
+
         items, _ = DocxRuleParser(rule_path).parse(sample_docx)
         br04 = next(i for i in items if i.req_id == "BR04")
 
-        assert br04.named_extractions["views"]  == ["VW_INVOICE_HDR"]
+        assert br04.named_extractions["views"] == ["VW_INVOICE_HDR"]
         assert br04.named_extractions["fields"] == ["INVOICE_DATE"]
 
     # ── Cycle 5 ───────────────────────────────────────────────────────────────
 
     def test_context_collects_non_br_content_only(self, rule_path, sample_docx):
         from src.docx_generic_parser import DocxRuleParser
+
         _, context = DocxRuleParser(rule_path).parse(sample_docx)
 
         assert "introduction paragraph" in context
-        assert "eInvoice"               in context   # from info table
+        assert "eInvoice" in context  # from info table
         # BR table rows must NOT appear in context
-        assert "BR04"  not in context
+        assert "BR04" not in context
         assert "BR 23" not in context
 
     # ── Cycle 10 ──────────────────────────────────────────────────────────────
 
-    def test_multiple_tables_with_different_allowlisted_prefixes(self, rule_path, multi_prefix_docx):
+    def test_multiple_tables_with_different_allowlisted_prefixes(
+        self, rule_path, multi_prefix_docx
+    ):
         """A document with a BRU table and a separate BRM table extracts both, IDs preserved verbatim."""
         from src.docx_generic_parser import DocxRuleParser
+
         items, _ = DocxRuleParser(rule_path).parse(multi_prefix_docx)
         ids = {i.req_id for i in items}
         assert ids == {"BRU01", "BRU23", "BRM01", "BRM23"}
@@ -79,6 +85,7 @@ class TestDocxRuleParser:
     def test_unrecognized_prefix_warns_instead_of_silently_dropping(self, rule_path, tmp_path):
         """An ID shaped like a BR row but with a prefix not in the allow-list is skipped and warned about, not extracted."""
         from docx import Document as DocxDocument
+
         from src.docx_generic_parser import DocxRuleParser
 
         doc = DocxDocument()
@@ -99,6 +106,7 @@ class TestDocxRuleParser:
     def test_plain_prefix_not_shadowed_by_longer_prefix(self, rule_path, tmp_path):
         """A plain 'BR' table alongside a 'BRU' table: BR04 must not be swallowed by the BRU alternative."""
         from docx import Document as DocxDocument
+
         from src.docx_generic_parser import DocxRuleParser
 
         doc = DocxDocument()
@@ -123,6 +131,7 @@ class TestDocxRuleParser:
     def test_brw_prefix_is_allowlisted(self, rule_path, tmp_path):
         """Regression: a BRM table alongside a BRW table extracts both — BRW must be in id_prefixes."""
         from docx import Document as DocxDocument
+
         from src.docx_generic_parser import DocxRuleParser
 
         doc = DocxDocument()
@@ -154,22 +163,31 @@ class TestDocxRuleParser:
 # GRAPH TESTS  (require Neo4j at bolt://localhost:7687)
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestDocumentHierarchy:
 
+class TestDocumentHierarchy:
     # shared helpers ──────────────────────────────────────────────────────────
 
     def _ingest(self, graph_db, items, context):
         """Mirror the endpoint's code path: ParsedItem → BR/Document → graph."""
-        from models import BR as _BR, Document as _Doc, UseCase as _UC
+        from models import BR as _BR
+        from models import Document as _Doc
+        from models import UseCase as _UC
 
         doc_model = _Doc(
-            uc_id="UC99", doc_type="FDD", flow_name="TestFlow",
-            source_file="test_fixture.docx", context=context,
+            uc_id="UC99",
+            doc_type="FDD",
+            flow_name="TestFlow",
+            source_file="test_fixture.docx",
+            context=context,
         )
         br_models = [
             _BR(
-                br_id=item.req_id, uc_id="UC99", doc_type="FDD",
-                flow_name="TestFlow", title=item.title, body=item.body,
+                br_id=item.req_id,
+                uc_id="UC99",
+                doc_type="FDD",
+                flow_name="TestFlow",
+                title=item.title,
+                body=item.body,
                 candidate_categories=item.candidate_categories,
                 affected_views=item.named_extractions.get("views", []),
                 affected_fields=item.named_extractions.get("fields", []),
@@ -188,6 +206,7 @@ class TestDocumentHierarchy:
     def test_document_node_created_with_context(self, graph_db, rule_path, sample_docx):
         """Document node has context, uc_id, doc_type, source_file set."""
         from src.docx_generic_parser import DocxRuleParser
+
         items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
         doc_id = self._ingest(graph_db, items, context)
@@ -197,16 +216,17 @@ class TestDocumentHierarchy:
 
         assert row is not None
         d = row["d"]
-        assert d["doc_type"]    == "FDD"
-        assert d["uc_id"]       == "UC99"
+        assert d["doc_type"] == "FDD"
+        assert d["uc_id"] == "UC99"
         assert d["source_file"] == "test_fixture.docx"
-        assert "introduction"   in d["context"]
+        assert "introduction" in d["context"]
 
     # ── Cycle 7 ───────────────────────────────────────────────────────────────
 
     def test_br_nodes_linked_to_document_via_defines(self, graph_db, rule_path, sample_docx):
         """3 BR nodes are reachable from Document via [:DEFINES]."""
         from src.docx_generic_parser import DocxRuleParser
+
         items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
         doc_id = self._ingest(graph_db, items, context)
@@ -224,6 +244,7 @@ class TestDocumentHierarchy:
     def test_usecase_node_linked_to_document(self, graph_db, rule_path, sample_docx):
         """UseCase→[:HAS_DOCUMENT]→Document edge is created."""
         from src.docx_generic_parser import DocxRuleParser
+
         items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
         doc_id = self._ingest(graph_db, items, context)
@@ -245,6 +266,7 @@ class TestDocumentHierarchy:
     def test_flow_node_linked_to_usecase(self, graph_db, rule_path, sample_docx):
         """Flow→[:HAS_UC]→UseCase edge is created (matches CLI pipeline schema)."""
         from src.docx_generic_parser import DocxRuleParser
+
         items, context = DocxRuleParser(rule_path).parse(sample_docx, source_label="UC99")
 
         self._ingest(graph_db, items, context)

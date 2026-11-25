@@ -1,5 +1,6 @@
 """Staging store for notes awaiting human review, plus note-parsing helpers
 used when committing approved notes directly into Neo4j."""
+
 from __future__ import annotations
 
 import hashlib
@@ -54,7 +55,7 @@ def parse_wikilinks(content: str) -> list[dict]:
         end = min(len(content), m.end() + 80)
         ctx = content[start:end].replace("\n", " ")
         line_start = content.rfind("\n", 0, m.start()) + 1
-        on_tags_line = _TAGS_LINE_RE.match(content[line_start:m.start() + 1])
+        on_tags_line = _TAGS_LINE_RE.match(content[line_start : m.start() + 1])
         rel = "TAGGED_WITH" if on_tags_line else "LINKS_TO"
         links.append({"target": target, "alias": alias, "context": ctx, "relationship": rel})
     return links
@@ -76,15 +77,15 @@ def note_props(staged: dict) -> dict:
     subfolder = parts[-2] if len(parts) >= 2 else ""
     body = extract_body(staged["content"])
     return {
-        "node_id":      hashlib.sha1(path.encode()).hexdigest()[:16],
-        "title":        staged["title"],
-        "type":         staged["note_type"],
-        "subfolder":    subfolder,
-        "status":       "Done",
-        "created_at":   datetime.now().strftime("%Y-%m-%dT%H:%M"),
-        "path":         path,
-        "word_count":   len(body.split()),
+        "node_id": hashlib.sha1(path.encode()).hexdigest()[:16],
+        "title": staged["title"],
+        "type": staged["note_type"],
+        "subfolder": subfolder,
+        "status": "Done",
+        "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M"),
+        "path": path,
+        "word_count": len(body.split()),
         "content_hash": hashlib.md5(staged["content"].encode()).hexdigest(),
-        "body":         body,
-        "summary":      "",
+        "body": body,
+        "summary": "",
     }

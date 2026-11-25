@@ -13,7 +13,7 @@ import logging
 import os
 import socket
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -66,10 +66,10 @@ def _port_open(host: str, port: int) -> bool:
 
 class McpManager:
     def __init__(self) -> None:
-        self._procs:      dict[str, subprocess.Popen | None] = {k: None for k in SERVERS}
-        self._started_at: dict[str, datetime | None]         = {k: None for k in SERVERS}
-        self._stopped:    set[str]                           = set()
-        self._live_pids:  dict[str, int | None]              = {k: None for k in SERVERS}
+        self._procs: dict[str, subprocess.Popen | None] = {k: None for k in SERVERS}
+        self._started_at: dict[str, datetime | None] = {k: None for k in SERVERS}
+        self._stopped: set[str] = set()
+        self._live_pids: dict[str, int | None] = {k: None for k in SERVERS}
         if _psutil is not None:
             for name, pid in self._load_state().get("pids", {}).items():
                 if name not in SERVERS:
@@ -105,7 +105,7 @@ class McpManager:
 
     def get_config(self, name: str) -> dict[str, str]:
         """Return the stored config overrides for a server, falling back to defaults."""
-        cfg      = SERVERS[name]
+        cfg = SERVERS[name]
         overrides = self._load_state().get("config", {}).get(name, {})
         return {
             "host": overrides.get("MCP_HOST", cfg["host"]),
@@ -148,9 +148,9 @@ class McpManager:
         if self._is_running(name):
             return
 
-        cfg   = SERVERS[name]
-        conf  = self.get_config(name)
-        env   = os.environ.copy()
+        cfg = SERVERS[name]
+        conf = self.get_config(name)
+        env = os.environ.copy()
         env["MCP_HOST"] = conf["host"]
         env["MCP_PORT"] = conf["port"]
 
@@ -172,9 +172,9 @@ class McpManager:
             logger.error("Failed to start %s: %s", name, exc)
             raise
 
-        self._procs[name]      = proc
-        self._started_at[name] = datetime.now(timezone.utc)
-        self._live_pids[name]  = proc.pid
+        self._procs[name] = proc
+        self._started_at[name] = datetime.now(UTC)
+        self._live_pids[name] = proc.pid
         logger.info("Started %s pid=%s", name, proc.pid)
 
         state = self._load_state()
@@ -197,7 +197,7 @@ class McpManager:
                     proc.kill()
                 except Exception:
                     pass
-            self._procs[name]      = None
+            self._procs[name] = None
             self._started_at[name] = None
 
         self._stopped.add(name)
@@ -208,7 +208,8 @@ class McpManager:
         if _port_open(conf["host"], int(conf["port"])):
             logger.warning(
                 "Port %s still open after stop attempt for %s — killing by port",
-                conf["port"], name,
+                conf["port"],
+                name,
             )
             _kill_by_port(int(conf["port"]))
             self._started_at[name] = None
@@ -254,24 +255,24 @@ class McpManager:
     def status(self, name: str) -> dict:
         if name not in SERVERS:
             raise KeyError(f"Unknown server: {name!r}")
-        cfg     = SERVERS[name]
-        conf    = self.get_config(name)
+        cfg = SERVERS[name]
+        conf = self.get_config(name)
         running = self._is_running(name)
         started = self._started_at.get(name)
-        proc    = self._procs.get(name)
-        uptime  = None
+        proc = self._procs.get(name)
+        uptime = None
         if running and started:
-            uptime = int((datetime.now(timezone.utc) - started).total_seconds())
+            uptime = int((datetime.now(UTC) - started).total_seconds())
         sse_url = f"http://{conf['host']}:{conf['port']}/sse"
         return {
-            "name":    name,
-            "label":   cfg["label"],
-            "host":    conf["host"],
-            "port":    int(conf["port"]),
+            "name": name,
+            "label": cfg["label"],
+            "host": conf["host"],
+            "port": int(conf["port"]),
             "sse_url": sse_url,
             "running": running,
-            "pid":     proc.pid if proc and proc.poll() is None else self._live_pids.get(name),
-            "uptime":  uptime,
+            "pid": proc.pid if proc and proc.poll() is None else self._live_pids.get(name),
+            "uptime": uptime,
         }
 
     def all_statuses(self) -> list[dict]:
