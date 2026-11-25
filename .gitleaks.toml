@@ -1,0 +1,10 @@
+# Extends gitleaks' built-in rules (used by the pre-commit hook).
+[extend]
+useDefault = true
+
+# An empty `KEY=` line in a .env template makes generic-api-key read the
+# next line as the key's value. Only an empty assignment is allowed here.
+[[allowlists]]
+description = "Empty assignments in .env templates and docs"
+regexTarget = "match"
+regexes = ['''(?m)^[A-Z0-9_]+=\r?\n''']
